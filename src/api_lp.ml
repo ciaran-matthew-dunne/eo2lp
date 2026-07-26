@@ -202,6 +202,18 @@ let metas_to_plac t =
 let has_plac t =
   term_exists (function Term.Plac _ -> true | _ -> false) t
 
+(* Pseudo-symbol rendering as "_". Print.term's internal cleanup rejects
+   Plac nodes, so placeholders are swapped for this symbol just before
+   printing; lambdapi re-infers the wildcards when checking the output. *)
+let wildcard_sym =
+  Term.create_sym [] Term.Privat Term.Defin Term.Eager false
+    (Pos.none "_") None Term.mk_Kind []
+
+let plac_to_wildcard t =
+  term_map (function
+    | Term.Plac _ -> Some (Term.mk_Symb wildcard_sym)
+    | _ -> None) t
+
 (* Signature state *)
 let current_sign : sign option ref = ref None
 let current_deps  : Path.t list ref = ref []
@@ -384,8 +396,8 @@ let add_definition ?(impl=[]) ?(print_ty=true) name ty def =
   sym
 
 (* Compilation *)
-let compile ?(force=false) path =
-  let run () = Compile.compile ~force path in
+let compile path =
+  let run () = Compile.compile Sig_state.dummy path in
   if !verbose then run ()
   else begin
     flush_all ();
@@ -449,6 +461,7 @@ let rec reduce_aliases t =
 let print_term ppf t =
   let t = reduce_aliases t in
   let t = if has_unsolved_metas t then metas_to_plac t else t in
+  let t = if has_plac t then plac_to_wildcard t else t in
   if is_tau_eo_type t then
     Format.fprintf ppf "Set"
   else
@@ -762,9 +775,12 @@ let print_rule_clause ppf (sym, rule) =
     (fun arg -> Format.fprintf ppf " (%a)" print_term arg)
     rule.Term.lhs;
 
-  (* Print RHS with implicits off so unsolved metas become _ *)
-  set_print_implicits false;
+  (* Print RHS with implicits on: values solved during encoding (e.g. by
+     fill_ite_implicits) are emitted explicitly instead of discarded, so
+     the checker need not re-infer them; unsolved ones render as _. *)
+  set_print_implicits true;
   Format.fprintf ppf " ↪ %a" print_term rule.Term.rhs;
+  set_print_implicits false;
   set_do_not_qualify false
 
 (* Print a group of rules for the same symbol, joined with "with" *)

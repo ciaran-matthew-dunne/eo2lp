@@ -94,7 +94,10 @@ let path_to_module pkg path = pkg ^ "." ^ String.concat "." path
 
 let exn_msg = function
   | Failure msg -> msg
-  | exn -> Printexc.to_string exn
+  | exn ->
+    Printexc.to_string exn
+    ^ (if Printexc.backtrace_status () then "\n" ^ Printexc.get_backtrace ()
+       else "")
 
 exception Timeout
 
@@ -176,7 +179,7 @@ let init_lambdapi ~output_dir ~pkg_name () =
   LP.init_library ();
   LP.apply_package_config ".";
   let prelude_path = [pkg_name; "Prelude"] in
-  let sign = LP.compile ~force:true prelude_path in
+  let sign = LP.compile prelude_path in
   Sys.chdir cwd;
   sign
 

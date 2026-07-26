@@ -1,0 +1,143 @@
+[4mLAMBDAPI-CHECK[24m(1)               Lambdapi Manual              [4mLAMBDAPI-CHECK[24m(1)
+
+[1mNAME[0m
+       lambdapi-check - Type-checks the given files.
+
+[1mSYNOPSIS[0m
+       [1mlambdapi check [22m[[4mOPTION[24m]… [[4mFILE[24m]…
+
+[1mARGUMENTS[0m
+       [4mFILE[0m
+           Source  file  with the [.lp] extension (or with the [.dk] extension
+           when using the Dedukti syntax).
+
+[1mOPTIONS[0m
+       [1m-c[22m, [1m--gen-obj[0m
+           Produce object files with the [.lpo] extension. These object  files
+           can  then be read during subsequent calls to avoid re-type-checking
+           fo the corresponding source file. Note that an object file is  only
+           used  when it is up to date (i.e., more recent than the source). If
+           that is not the case then the outdated file is overwritten.
+
+       [1m--confluence[22m=[4mCMD[0m
+           Use the command [4mCMD[24m for checking confluence. The command [4mCMD[24m should
+           accept HRS-formatted text on its standard input (For more info  see
+           http://project-coco.uibk.ac.at/problems/hrs.php) and the first line
+           of its standard output should be either "YES", "NO" or "MAYBE".
+
+       [1m--debug[22m=[4mFLAGS[0m
+           Enables  the debugging flags specified in [4mFLAGS[24m. Every character of
+           [4mFLAGS[24m correspond to  a  flag.  The  available  values  are:  [1ma  [22mfor
+           metavariables,  [1mb  [22mfor  one  lookahead  cell  buffer  lexing, [1mc [22mfor
+           conversion, [1md [22mfor compilation of decision trees, [1me [22mfor snf,  [1mg  [22mfor
+           generation  of induction principles, [1mi [22mfor type inference/checking,
+           [1mk [22mfor local confluence, [1ml [22mfor library files, [1mm [22mfor term building, [1mn[0m
+           for parsing, [1mo [22mfor scoping, [1mp [22mfor pretty-printing, [1mq [22mfor rewriting,
+           [1mr [22mfor rewrite tactic, [1ms [22mfor subject-reduction, [1mt [22mfor tactics, [1mu [22mfor
+           unification, [1mv [22mfor inverse, [1mw [22mfor whnf, [1mx [22mfor export,  [1my  [22mfor  why3
+           tactic, [1mz [22mfor external tools.
+
+       [1m--lib-root[22m=[4mDIR[0m
+           Set the library root to be the directory [4mDIR[24m. The library root is a
+           common  path  under  which  every module is placed. It has the same
+           purpose as the root directory "/" of Unix systems. In  fact  it  is
+           possible  to  "mount"  directories  under the library root with the
+           "--map-dir" option. Lambdapi uses [4mDIR[24m as  library  root  if  it  is
+           provided,               otherwise              it              uses
+           [1m$LAMBDAPI_LIB_ROOT/lib/lambdapi/lib_root   [22mif    the    environment
+           variable        [1mLAMBDAPI_LIB_ROOT        [22mis        set,        then
+           [1m$OPAM_SWITCH_PREFIX/lib/lambdapi/lib_root [22mif [1mOPAM_SWITCH_PREFIX  [22mis
+           set or it uses /usr/local/lib/lambdapi/lib_root.
+
+       [1m--map-dir[22m=[4mMOD:DIR[0m
+           Map  all the modules having MOD as a prefix of their module path to
+           files under the directory DIR. The corresponding modules under  the
+           library  root are then rendered inaccessible. This option is useful
+           during the development of a library, before it can be installed  in
+           the expected folder under the library root.
+
+       [1m--no-colors[0m
+           Disable  the use of colors when printing to the terminal. Note that
+           the default behaviour is to rely on ANSI escape sequences in  order
+           to make the debugging logs more readable.
+
+       [1m--no-sr-check[0m
+           Disable the verification that rewrite rules preserve typing.
+
+       [1m--record-time[0m
+           Print  statistics  on  the  time spent in different tasks (parsing,
+           typing, etc.). Note that it slows down the program.
+
+       [1m--termination[22m=[4mCMD[0m
+           Use the command [4mCMD[24m  for  checking  termination.  The  command  [4mCMD[0m
+           should  accept  XTC-formatted  text on its standard input (for more
+           info see https://tinyurl.com/XTC-format), and the first line of its
+           standard output should be either "YES", "NO" or "MAYBE".
+
+       [1m--timeout[22m=[4mNUM[0m
+           Timeout after [4mNUM[24m seconds. The program is interrupted with an error
+           as soon as the specified number of seconds is elapsed.
+
+       [1m--too-long[22m=[4mFLOAT[24m (absent=[1minf[22m)
+           Print a warning every time that a command requires more than  [4mFLOAT[0m
+           seconds to execute. The command is not interrupted.
+
+       [1m-v [4m[22mNUM[24m, [1m--verbose[22m=[4mNUM[0m
+           Set  the verbosity level to [4mNUM[24m. A value smaller or equal to 0 will
+           disable all printing (on standard output). Greater numbers lead  to
+           more  and more informations being written to standard output.In the
+           case of the websearch  command,  a  value  larger  or  equal  to  2
+           willprint  the requests received by the server. A value larger than
+           3 will also print the responses sent by the server.
+
+       [1m-w[22m, [1m--no-warnings[0m
+           Disable the printing of all warnings.
+
+[1mCOMMON OPTIONS[0m
+       [1m--help[22m[=[4mFMT[24m] (default=[1mauto[22m)
+           Show this help in format [4mFMT[24m. The value [4mFMT[24m must be  one  of  [1mauto[22m,
+           [1mpager[22m,  [1mgroff  [22mor  [1mplain[22m.  With  [1mauto[22m, the format is [1mpager [22mor [1mplain[0m
+           whenever the [1mTERM [22menv var is [1mdumb [22mor undefined.
+
+       [1m--version[0m
+           Show version information.
+
+[1mEXIT STATUS[0m
+       [1mlambdapi check [22mexits with:
+
+       0   on success.
+
+       123 on indiscriminate errors reported on standard error.
+
+       124 on command line parsing errors.
+
+       125 on unexpected internal errors (bugs).
+
+[1mFILES[0m
+       A package configuration files [1mlambdapi.pkg [22mcan be placed at the root of
+       a source tree, so that Lambdapi can determine under  what  module  path
+       the  underlying  modules  should be registered (relative to the library
+       root). If several candidate package configuration files  are  found  in
+       the  parent  folders  of  a  source file, the one in the closest parent
+       directory is used.
+
+       The syntax of package configuration files is line-based. Each line  can
+       either  be  a  comment  (i.e.,  it  starts  with  a '#') or a key-value
+       association of the form "key = value". Two such entries should be given
+       for a configuration file to be valid: a [1mpackage_name [22mentry whose  value
+       is an identifier and a [1mroot_path [22mentry whose value is a module path.
+
+       An example of package configuration file is given bellow.
+
+            # Lines whose first non-whitespace charater is # are comments
+            # The end of a non-comment line cannot be commented.
+            # The following two fields must be defined:
+            package_name = my_package_name
+            root_path = a.b.c
+            # Unknown fields like the following are ignored.
+            unknown = this is useless
+
+[1mSEE ALSO[0m
+       lambdapi(1)
+
+Lambdapi dev-3.0.0-141-g57ab89a5                             [4mLAMBDAPI-CHECK[24m(1)

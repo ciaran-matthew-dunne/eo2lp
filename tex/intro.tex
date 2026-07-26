@@ -54,20 +54,19 @@ Ethos~\cite{EthosUser_manualmdMain}.
 
 The $\lambda\Pi$-calculus modulo rewriting~\cite{CousineauDowek}
 and its implementations in the tools Dedukti~\cite{assaf2023dedukti}
-and LambdaPi~\cite{hondet:hal-02981561} are designed to
-offer a trustworthy proof checker with an emphasis on
+and LambdaPi~\cite{hondet:hal-02981561} provide
+trustworthy proof checking with an emphasis on
 interoperability of proof systems.
 %
 This paper presents a translation from Eunoia to LambdaPi
 and an OCaml tool $\texttt{eo2lp}$ that implements the
 translation.
 %
-We used our tool to translate a large portion of
-\cvc{5}'s proof system to LambdaPi (\autoref{fig:pipeline}),
-allowing us to further translate and typecheck
-over 1{,}000~proof scripts produced by running \cvc{5}
-on $\texttt{unsat}$ problems from the SMT-LIB fragments for logic,
-linear integer arithmetic, arrays, and sets.
+We used our tool to translate \emph{CPC-MINI}, a fragment
+of CPC covering 14~SMT-LIB logic fragments
+(\autoref{fig:pipeline}), and to further translate and
+typecheck over 1{,}000~proof scripts produced by running
+\cvc{5} on $\texttt{unsat}$ problems from those fragments.
 % ---------------------------------------------------------
 \begin{boxfigure}[t!]{fig:pipeline}
 	{{Overview of the translation pipeline.
@@ -151,9 +150,11 @@ in a type-theoretic framework.
 
 \subsubsection*{Outline}
 %
-\autoref{sec:lambdapi} defines the translation into
-the $λΠ$-calculus modulo rewriting uniformly across
-rules, programs, and elaboration;
+\autoref{sec:eunoia} introduces the fragment of Eunoia
+targeted by our translation and its elaboration step;
+\autoref{sec:lambdapi} defines the translation into the
+$λΠ$-calculus modulo rewriting uniformly across rules,
+programs, and proof scripts;
 \autoref{sec:results} describes \texttt{eo2lp} and
 reports the benchmark results.
 
@@ -170,22 +171,28 @@ reports the benchmark results.
 % ---------------------------------------------------------
 % Placed here so it floats to the top of page 2
 \begin{boxfigure}[t!]{fig:eo-syntax}
-	{Eunoia syntax: terms, attributes, commands, proof commands.}
-	\alttext{Four stacked grammar tables.
+	{Eunoia syntax: terms, attributes, built-in symbols, commands, proof commands.}
+	\alttext{Five stacked grammar tables.
 		First: terms---symbols, literals, applications, or binder applications;
 		literals as int(n), rat(n,m), or str(s); parameters and program cases.
 		Second: parameter attributes (:implicit, :list) and constant attributes
 		(right/left-associative with optional nil terminator, chainable, pairwise,
 		binder, arg-list).
-		Third: standard commands---declare-const, declare-parameterized-const,
+		Third: built-in symbols grouped by family---core (eo::eq, eo::requires,
+		eo::quote, eo::var), boolean (eo::and, eo::or, eo::not, eo::xor),
+		arithmetic (eo::add, eo::mul, eo::neg, eo::zdiv), and
+		list (eo::nil, eo::cons, eo::list\_concat, eo::list\_len).
+		Fourth: standard commands---declare-const, declare-parameterized-const,
 		declare-consts, define (macro definition), program (with signature and
 		cases), declare-rule (with optional premises/premise-list, args,
 		requires, and conclusion attributes), include.
-		Fourth: proof commands---assume, assume-push, step (with rule, optional
+		Fifth: proof commands---assume, assume-push, step (with rule, optional
 		premises, optional args), and step-pop.}{%
 		\vspace{4pt}\centerline{$\eoTermSyntax$}
 		\boxfigurehline
 		\centerline{$\eoAttrSyntax$}
+		\boxfigurehline
+		\centerline{$\eoBuiltinFig$}
 		\boxfigurehline
 		\centerline{$\eoCommandSyntax$}
 		\boxfigurehline

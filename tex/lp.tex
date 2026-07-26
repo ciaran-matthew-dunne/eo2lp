@@ -5,7 +5,6 @@
 
 \begin{document}
 %
-\newpage
 \section{Encoding Eunoia in the λΠ-calculus}\label{sec:lambdapi}
 \begin{boxfigure}[t!]{fig:lpTermSyntax}
 	{Syntax and typing rules for the $λΠ$-calculus modulo rewriting.}
@@ -83,38 +82,41 @@ $\prn{⊢_{Σ}}$ between contexts and typings,
 where $\prn{Γ ⊢_{Σ} e : t}$ may be read as
 ``$e$ has type $t$ with respect to signature $Σ$ and context $Γ$''.
 
-\begin{remark}
-	The typing rules of the $λΠ$-calculus disallow
-	abstractions on types (i.e., there are no
-	expressions of type $\TYPE → t$ in any context).
-	Eunoia's types are therefore encoded as $λΠ$-terms
-	of type $\Set$, using the Tarski-style universe of
-	LambdaPi's standard library: an injective symbol
-	$\msf{τ} : \Set → \TYPE$ lifts a $\Set$-term to a
-	$λΠ$-type, and the (infix) function-space symbol
-	$\prn{⤳} : \Set → \Set → \Set$ satisfies
-	$\msf{τ}\,\prn{A ⤳ B} ↪ \msf{τ}\,A → \msf{τ}\,B$.
-
-	The dependent types arising from $\eo{quote}$
-	arguments are not expressible with $\prn{⤳}$
-	alone, so we additionally introduce a dependent
-	function space $\prn{⤳^{\msf d}} :
-		\pii{T : \Set}{\prn{{\msf{τ}\,T → \Set}} → \Set}$
-	with the rule
-	$\msf{τ}\,\prn{T ⤳^{\msf d} F} ↪
-		\pii{x : \msf{τ}\,T}{\msf{τ}\,\prn{\app F x}}$;
-	the non-dependent case is recovered by taking
-	$F ≔ \lam{\_}{B}$.
-\end{remark}
-
 % -------------------------------------------------------- %
 \subsection{Translating Eunoia Terms}
 %
-We begin by defining the translation $\tm{⋅}$ on
-Eunoia terms; it produces $λΠ$-terms in the
-abstract calculus of \autoref{fig:lpTermSyntax} and
-assumes all terms have already been processed by the
-$\mbf{elab}$ operator of \autoref{sec:eo-elab}.
+The typing rules of the $λΠ$-calculus disallow
+abstractions on types (i.e., there are no expressions
+of type $\TYPE → t$ in any context). Eunoia's types are
+therefore encoded as $λΠ$-terms of type $\Set$, using
+the Tarski-style universe of LambdaPi's standard
+library: an injective symbol
+$\msf{τ} : \Set → \TYPE$ lifts a $\Set$-term to a
+$λΠ$-type, and the (infix) function-space symbol
+$\prn{⤳} : \Set → \Set → \Set$ satisfies
+$\msf{τ}\,\prn{A ⤳ B} ↪ \msf{τ}\,A → \msf{τ}\,B$.
+%
+The dependent types arising from $\eo{quote}$ arguments
+are not expressible with $\prn{⤳}$ alone, so we
+additionally introduce a dependent function space
+$\prn{⤳^{\msf d}} :
+	\pii{T : \Set}{\prn{{\msf{τ}\,T → \Set}} → \Set}$
+with the rule
+$\msf{τ}\,\prn{T ⤳^{\msf d} F} ↪
+	\pii{x : \msf{τ}\,T}{\msf{τ}\,\prn{\app F x}}$;
+the non-dependent case is recovered by taking
+$F ≔ \lam{\_}{B}$.
+%
+We keep $\prn{⤳}$ as a first-class operator rather than
+defining it from $\prn{⤳^{\msf d}}$ because programs
+need a matchable function-space head: pattern variables
+cannot bind under a $Π$, but they can under $\prn{⤳}$.
+
+The translation $\tm{⋅}$ on Eunoia terms below produces
+$λΠ$-terms in the abstract calculus of
+\autoref{fig:lpTermSyntax} and assumes all terms have
+already been processed by the $\mbf{elab}$ operator of
+\autoref{sec:eo-elab}.
 %
 Because some Eunoia symbols are not valid LambdaPi
 identifiers, the translation on symbols uses LambdaPi
@@ -146,7 +148,7 @@ otherwise.
 				      &
 				      \text{if $ℓ = \msf{rat}(n,m)$,}
 				      \\
-				      \bar s & \text{if $ℓ = \msf{str}(s)$.}
+				      \estr{s} & \text{if $ℓ = \msf{str}(s)$.}
 			      \end{scases}
 		      $$
 		      The symbols $\ev{of\_Z}$ and $\ev{of\_Q}$ are
@@ -184,9 +186,12 @@ otherwise.
 				      \bar s\ \tm{t_1}\ \ldots\ \tm{t_n}
 			      \end{array}
 		      $$
-		\item The only normal-form binder application is $\eo{define}$,
-		      which is translated using LambdaPi's standard
-		      $\msf{let}$ binder:
+		\item After elaboration, every other binder
+		      application is unfolded by item~2 of
+		      \autoref{def:elab}; only $\eo{define}$
+		      survives because it is a let-binder rather
+		      than a binding form. It is translated using
+		      LambdaPi's standard $\msf{let}$ binder:
 		      $$\tm{\eapp{\eo{define}}{
 					      \epar{\vec v}
 					      \ t'
@@ -220,12 +225,12 @@ otherwise.
 		\centerline{$\lpConcreteSyntax$}\vspace{4pt}}
 \end{boxfigure}
 %
-\Autoref{fig:lpSyntax} defines the fragment of LambdaPi's
-concrete syntax that the translation produces. It is
-sugar over the calculus of \autoref{fig:lpTermSyntax}:
-implicit binders $\imp{x : t}$ and placeholders $\_$
-are elaborated to $Π$-binders and metavariables during
-type inference, and each declaration extends~$Σ$.
+\Autoref{fig:lpSyntax} defines the fragment of LambdaPi
+required for encoding Eunoia. It is sugar over the
+calculus of \autoref{fig:lpTermSyntax}: implicit binders
+$\imp{x : t}$ and placeholders $\_$ are elaborated to
+$Π$-binders and metavariables during type inference, and
+each declaration extends~$Σ$.
 
 A \emph{symbol declaration}
 $\maybe{m}\,\kw{symbol}\ s\ \vec ρ : t\,\maybe{≔ t'}$
@@ -272,67 +277,45 @@ section formalises the operators on contexts
 
 \begin{table}[t!]
 	\centering
-	\caption{Eunoia-to-LambdaPi encoding, grouped by the kind of design decision involved.
-		Symbols prefixed with $\msf{eo.}$ live in our hand-written
-		prelude (\autoref{sec:results}); $⤳$ and $⤳^{\msf d}$
-		are the function-space symbols of \autoref{fig:lpTermSyntax}.}
+	\caption{Eunoia-to-LambdaPi encoding.
+		Symbols prefixed with $\msf{eo.}$ are defined in
+		our hand-written prelude (\autoref{sec:results});
+		$⤳$ and $⤳^{\msf d}$ are the function-space
+		symbols introduced in \autoref{sec:lambdapi}.}
 	\label{tab:encoding}
 	\small
-	\begin{tabular}{@{}p{0.36\linewidth}@{\ }p{0.56\linewidth}@{}}
+	\begin{tabular}{@{}p{0.40\linewidth}@{\ \ }p{0.52\linewidth}@{}}
 		\hline
 		\textbf{Eunoia feature} & \textbf{LambdaPi encoding} \\
 		\hline
-		\multicolumn{2}{@{}l@{}}{\textit{Types via a Tarski universe (LambdaPi disallows abstractions over types)}}
-		\\
 		Type universe $\eotype$
-		& sort $T$ becomes a term $T : \Set$ with carrier $\msf{τ}\,T$
-		\\
+		& term $T : \Set$, carrier $\msf{τ}\,T$ \\
 		Function type $\earr{A\ B}$
-		& $A ⤳ B$, with rewrite
-		$\msf{τ}\,(A ⤳ B) ↪ \msf{τ}\,A → \msf{τ}\,B$
-		\\
-		Object-level dependent type from $\eoquote{x}$
-		& $A ⤳^{\msf d} \lam{x}{B}$ (Remark~1; matchable head, unlike~$Π$)
-		\\
-		\hline
-		\multicolumn{2}{@{}l@{}}{\textit{$n$-ary syntax compiled to binary applications via $\mbf{elab}$ (\autoref{def:elab})}}
-		\\
-		Higher-order application $\eho{t_1}{t_2}$
-		& $\lpo{app}\ t_1\ t_2$
-		\\
-		$n$-ary $\eapp{f}{\vec t}$ with $\rcn{t_\nil}$, $\ch{}$ etc.\
-		& nested binary application; nil terminator handled by a rewrite rule
-		\\
-		Variables in binder applications ($\eo{var}$)
-		& reified into a heterogeneous-list type whose entries carry their own sort
-		\\
-		\hline
-		\multicolumn{2}{@{}l@{}}{\textit{Programs and rules as computational/axiomatic content}}
-		\\
-		Program (\kw{program})
-		& \md{sequential}\ \kw{symbol}\ + one rewrite rule per case (SR-checked)
-		\\
-		Inference rule (\kw{declare-rule})
-		& \md{constant}\ \kw{symbol}\ + auxiliary symbol with quote-pattern rewrite rule when $\attr{args}$ is present
-		\\
-		Built-in arithmetic ($\eo{add}$, $\eo{mul}$, $\ldots$)
-		& prelude rewrite rules delegating to LambdaPi's $\mathbb Z, \mathbb Q$
-		\\
-		Conclusion guard $\eoreqs{l}{r}{ψ}$
-		& $ψ$ applies only when $l$ and $r$ are syntactically identical
-		\\
-		\hline
-		\multicolumn{2}{@{}l@{}}{\textit{Straightforward}}
-		\\
+		& $A ⤳ B$, with $\msf{τ}\,(A ⤳ B) ↪ \msf{τ}\,A → \msf{τ}\,B$ \\
+		Dependent type from $\eoquote{x}$
+		& $A ⤳^{\msf d} \lam{x}{B}$ (matchable head, unlike $Π$) \\
 		Parameter attribute $\attr{implicit}$
-		& implicit LambdaPi binder $\imp{x : \msf{τ}\,T}$
-		\\
-		Constant decl / macro \kw{define}
-		& \kw{symbol}\ $s\,\vec ρ : \msf{τ}\,T$ resp.\ $\kw{symbol}\ s\,\vec ρ ≔ t$
-		\\
-		Proof commands \kw{assume} / \kw{step}
-		& \md{constant}\ \kw{symbol} of type $\lpo{Proof}\,φ$, resp.\ a defined symbol followed by $\kw{assert}$
-		\\
+		& implicit binder $\imp{x : \msf{τ}\,T}$ \\
+		Macro $\kw{define}$
+		& $\kw{symbol}\ s\,\vec ρ ≔ t$ \\
+		Higher-order application $\eho{t_1}{t_2}$
+		& $\lpo{app}\ t_1\ t_2$ \\
+		$n$-ary $\eapp{f}{\vec t}$ with attribute
+		& nested binary application; nil terminator via rewrite rule \\
+		Binder variables ($\eo{var}$)
+		& reified into the list type $\lpo{List}$ \\
+		Program ($\kw{program}$)
+		& $\md{sequential}\ \kw{symbol}$ + one rewrite rule per case (SR-checked) \\
+		Inference rule ($\kw{declare-rule}$)
+		& $\md{constant}\ \kw{symbol}$ + auxiliary symbol with quote-pattern rewrite when $\attr{args}$ present \\
+		Built-in arithmetic
+		& prelude rules delegating to $\mathbb Z, \mathbb Q$ \\
+		Conclusion guard $\eoreqs{l}{r}{ψ}$
+		& $ψ$ applies only when $l ≡ r$ syntactically \\
+		Proof command $\kw{assume}$
+		& $\md{constant}\ \kw{symbol}$ of type $\lpo{Proof}\,φ$ \\
+		Proof command $\kw{step}$
+		& defined symbol + $\kw{assert}$ \\
 		\hline
 	\end{tabular}
 \end{table}
@@ -452,31 +435,28 @@ occurs free in $t$, marked as implicit.
 \end{definition}
 
 \begin{example}\label{ex:cmd}
-	We illustrate $\cmd{δ}$ on declarations from
-	\autoref{ex:eo-rules}. The polymorphic equality
-	$\ev{=}$ and the associative $\ev{or}$ translate by
-	case~1, the latter also producing a nil-terminator
-	rewrite rule:
+	We illustrate $\cmd{δ}$ on the four declarations
+	from \autoref{ex:eo-rules}:
+	%
 	\begin{lpbox}
 		\lstinputlisting[style=lp, aboveskip=0pt, belowskip=0pt]{listings/cmd-constants.lp}%
-	\end{lpbox}
-	%
-	$\ev{modus\_ponens}$ has no $\attr{args}$, so case~1
-	yields its derived type directly:
-	\begin{lpbox}
+		\listsep
 		\lstinputlisting[style=lp, aboveskip=0pt, belowskip=0pt]{listings/cmd-modus-ponens.lp}%
+		\listsep
+		\lstinputlisting[style=lp, aboveskip=0pt, belowskip=0pt]{listings/cmd-rule-aux.lp}%
 	\end{lpbox}
 	%
+	\noindent
+	The polymorphic equality $\ev{=}$ and the
+	associative $\ev{or}$ translate by case~1, the latter
+	also producing a nil-terminator rewrite rule.
+	$\ev{modus\_ponens}$ has no $\attr{args}$, so case~1
+	yields its derived type directly.
 	$\ev{cnf\_implies\_pos}$ has the compound argument
 	$\attr{args}\epar{\eapp{\ev{=>}}{\ev{F1}\ \ev{F2}}}$,
 	triggering case~4: an auxiliary symbol matches the
-	argument pattern and rewrites to $\lpo{Proof}\ φ$
-	for $φ ≔ \tm{\eapp{\ev{or}}
-			{\eapp{\ev{not}}{\eapp{\ev{=>}}{\ev{F1}\ \ev{F2}}}
-				\ \eapp{\ev{not}}{\ev{F1}}\ \ev{F2}}}$.
-	\begin{lpbox}
-		\lstinputlisting[style=lp, aboveskip=0pt, belowskip=0pt]{listings/cmd-rule-aux.lp}%
-	\end{lpbox}
+	argument pattern and rewrites to the translated
+	conclusion under $\lpo{Proof}$.
 \end{example}
 
 % ----------------------------------------------------------
@@ -520,14 +500,17 @@ occurs free in $t$, marked as implicit.
 \begin{example}\label{ex:proof}
 	A \texttt{QF\_UF} proof script (top) deriving
 	$\false$ from $\eapp{\ev =}{\ev{x0}\ \ev{x0}}$
-	via $\ev{eq\_refl}$ and $\ev{eq\_resolve}$, and
-	its LambdaPi translation (bottom) generated by
+	via $\ev{eq{-}refl}$ and $\ev{eq\_resolve}$ (CPC
+	uses both \texttt{-} and \texttt{\_} in rule names),
+	and its LambdaPi translation (bottom) generated by
 	\autoref{def:cmd} and \autoref{def:cmd-prf}:
-
-	\eofile{listings/proof.eo}%
-	\vspace{-\medskipamount}%
-	\lpfile{listings/proof.lp}
-
+	%
+	\begin{eobox}
+		\lstinputlisting[style=eo, aboveskip=0pt, belowskip=0pt]{listings/proof.eo}%
+		\listsep
+		\lstinputlisting[style=lp, aboveskip=0pt, belowskip=0pt]{listings/proof.lp}%
+	\end{eobox}
+	%
 	The preamble's $\ev{U}$, $\ev{x0}$ translate by
 	case~1 and the $\kw{define}$s by case~2 of
 	\autoref{def:cmd}; the assumption $\ev{@p1}$

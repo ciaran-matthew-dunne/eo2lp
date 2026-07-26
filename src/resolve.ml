@@ -73,6 +73,81 @@ let pp_ctx_compact () fmt ctx =
     pp_entry fmt ctx
 
 (* Resolve placeholders via type inference *)
+(* Infer the type of a term (forward declaration of the helper below,
+   needed by fill_ite_implicits inside resolve_term). *)
+let infer_type_in ctx term =
+  let prob = Term.new_problem () in
+  match Core.Infer.infer_noexn prob ctx term with
+  | Some (_, ty) -> let _ = Core.Unif.solve_noexn prob in Some ty
+  | None -> None
+
+(* eo::ite's result type is the conditional type (?? b U T), which the
+   unifier cannot invert, so its implicits [U] [T] often stay unsolved.
+   They are, however, just the types of the two branches: fill any that
+   resolution left unsolved by inferring the branch types directly. *)
+let fill_ite_implicits ctx t =
+  let is_ite = function
+    | Term.Symb s -> s.Term.sym_name = "{|eo::ite|}"
+    | _ -> false
+  in
+  let unsolved t = has_unsolved_metas t || has_plac t in
+  (* Copy an inferred type into a pure term tree, following solved metas.
+     Solutions found during the local inference live in Timed refs and can
+     be rolled back by later lambdapi calls, so they must be materialized
+     now. Rejects (None) if anything unsolved remains. *)
+  let materialize t =
+    let exception Reject in
+    let rec m t =
+      match Term.unfold t with
+      | Term.Meta _ | Term.Plac _ | Term.Wild -> raise Reject
+      | Term.Appl (a, b) -> Term.mk_Appl (m a, m b)
+      | Term.Abst (a, b) ->
+        let (v, body) = unbind b in Term.mk_Abst (m a, bind_var v (m body))
+      | Term.Prod (a, b) ->
+        let (v, body) = unbind b in Term.mk_Prod (m a, bind_var v (m body))
+      | Term.LLet (a, d, b) ->
+        let (v, body) = unbind b in
+        Term.mk_LLet (m a, m d, bind_var v (m body))
+      | t -> t
+    in
+    try Some (m t) with Reject -> None
+  in
+  let rec go ctx t =
+    match Term.get_args t with
+    | (h, [u; ty; b; x; y]) when is_ite h ->
+      let b = go ctx b and x = go ctx x and y = go ctx y in
+      let fill old branch =
+        if not (unsolved old) then old
+        else match infer_type_in ctx branch with
+          | Some bty ->
+            (match Term.unfold bty with
+             | Term.Appl (Term.Symb s, inner) when s.Term.sym_name = "τ" ->
+               (* Normalize: e.g. (?? c T T) reduces to T even with c open. *)
+               let inner = try Core.Eval.snf ctx inner with _ -> inner in
+               (match materialize inner with
+                | Some v -> v
+                | None -> old)
+             | _ -> old)
+          | None -> old
+      in
+      Term.add_args h [fill u x; fill ty y; b; x; y]
+    | _ ->
+      match Term.unfold t with
+      | Term.Appl (a, b) -> Term.mk_Appl (go ctx a, go ctx b)
+      | Term.Abst (a, bdr) ->
+        let (v, body) = unbind bdr in
+        Term.mk_Abst (go ctx a, bind_var v (go ((v, a, None) :: ctx) body))
+      | Term.Prod (a, bdr) ->
+        let (v, body) = unbind bdr in
+        Term.mk_Prod (go ctx a, bind_var v (go ((v, a, None) :: ctx) body))
+      | Term.LLet (a, d, bdr) ->
+        let (v, body) = unbind bdr in
+        Term.mk_LLet (go ctx a, go ctx d,
+                      bind_var v (go ((v, a, Some d) :: ctx) body))
+      | t -> t
+  in
+  go ctx t
+
 let resolve_term ?(debug=false) ?(ctx=[]) ?expected_ty t =
   if not (has_plac t) then t
   else
@@ -89,6 +164,7 @@ let resolve_term ?(debug=false) ?(ctx=[]) ?expected_ty t =
     | Some (resolved, ty) ->
       let _ = Core.Unif.solve_noexn prob in
       let cleaned = try Term.cleanup resolved with _ -> resolved in
+      let cleaned = fill_ite_implicits ctx cleaned in
       if has_unsolved_metas cleaned && debug then
         log_warn_pp (fun lbl ->
           Format.eprintf "  %s unsolved metas:@." (yellow (Printf.sprintf "[%s]" lbl));

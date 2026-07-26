@@ -520,8 +520,10 @@ let enc_defn str ps tm ty_opt =
 (* Encode a program case as a rewrite rule *)
 let enc_case eo_ps ctx impl_ctx sym ?(wildcard_impl_vars=false) ?expected_ty (t1, t2 : EO.term * EO.term) =
 
-  let enc_rhs t =
-    let encoded = enc_term eo_ps ctx t |> resolve_term ~debug:!verbose ~ctx in
+  let l_res = enc_term eo_ps ctx t1 |> resolve_term ~debug:!verbose ~ctx in
+  let r_res = enc_term eo_ps ctx t2 |> resolve_term ~debug:!verbose ~ctx in
+
+  let enc_rhs encoded =
     let coerced = match expected_ty with
       | Some exp_ty -> coerce_int_to_lit ctx encoded exp_ty
       | None -> encoded
@@ -529,14 +531,12 @@ let enc_case eo_ps ctx impl_ctx sym ?(wildcard_impl_vars=false) ?expected_ty (t1
     coerced |> bind_pvars ctx
   in
 
-  (* For the LHS, resolve_term infers the implicit args from the explicit
+  (* For the LHS, resolution infers the implicit args from the explicit
      pattern args. We keep the resolved implicit args when they are fully
      resolved (e.g., Seq $U instead of bare $T when the pattern refines
      the type). When resolution leaves unsolved metas, we fall back to the
      impl_ctx variable to ensure pattern variables are bound in the LHS. *)
-  let enc_lhs t =
-    let encoded = enc_term eo_ps ctx t in
-    let resolved = resolve_term ~debug:!verbose ~ctx encoded in
+  let enc_lhs resolved =
     let resolved = strip_eo_as resolved in
     let head, args = Core.Term.get_args resolved in
     let is_our_sym = match head with
@@ -573,9 +573,9 @@ let enc_case eo_ps ctx impl_ctx sym ?(wildcard_impl_vars=false) ?expected_ty (t1
               Core.Term.eq_vars v iv) impl_ctx
           | _ -> false
       in
-      let impl_args = List.map2 (fun resolved_arg _fallback ->
-        if has_unsolved_metas resolved_arg || is_impl_var resolved_arg
-        then mk_Plac false
+      let impl_args = List.map2 (fun resolved_arg fallback ->
+        if is_impl_var resolved_arg then mk_Plac false
+        else if has_unsolved_metas resolved_arg then fallback
         else resolved_arg
       ) resolved_impl impl_vars in
       (* Apply nonvar_metas_to_plac selectively: only to args that
@@ -593,8 +593,28 @@ let enc_case eo_ps ctx impl_ctx sym ?(wildcard_impl_vars=false) ?expected_ty (t1
       bind_pvars ctx resolved
   in
 
-  let l, rhs = enc_lhs t1, enc_rhs t2 in
+  let l, rhs = enc_lhs l_res, enc_rhs r_res in
   let _,lhs = Core.Term.get_args l in
+  (* LHS and RHS are resolved independently, so an implicit may resolve to a
+     context variable on the RHS while its LHS occurrence degraded to a
+     wildcard — lambdapi rejects such rules ("Variable must be in LHS").
+     Demote RHS pattern variables unbound in the LHS to wildcards; the SR
+     checker re-solves them from the LHS typing. *)
+  let lhs_pvar_names =
+    let names = ref SSet.empty in
+    List.iter (fun t ->
+      ignore (term_map (fun t ->
+        (match t with
+         | Core.Term.Patt (_, n, _) -> names := SSet.add n !names
+         | _ -> ());
+        None) t)) lhs;
+    !names
+  in
+  let rhs = term_map (function
+    | Core.Term.Patt (_, n, _) when not (SSet.mem n lhs_pvar_names) ->
+      Some (mk_Plac false)
+    | _ -> None) rhs
+  in
   (sym, mk_rule_record ctx lhs rhs)
 
 let enc_prog str ps doms ran cases =

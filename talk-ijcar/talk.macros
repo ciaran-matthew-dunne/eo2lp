@@ -1,0 +1,130 @@
+\newcommand{\eo}[1]{\mtt{eo::#1}}
+\newcommand{\cpc}{\mathsf{CPC}}
+
+\lstdefinelanguage{smtlib}{
+	morekeywords={
+			assert, check-sat, check-sat-assuming, echo, exit,
+			get-assertions, get-assignment, get-info, get-model, get-option,
+			get-proof, get-unsat-assumptions, get-unsat-core, get-value,
+			pop, push, reset, reset-assertions, set-info, set-logic, set-option,
+			declare-const, define-const,
+			declare-parameterized-const, define,
+			declare-fun, define-fun, define-fun-rec,
+			declare-sort, define-sort,
+			declare-type, define-type,
+			declare-rule, program,
+			assume, step,
+			assume-push, step-pop,
+			par, unknown,
+		},
+	alsoletter={-,+,-,*,/,>,<,>=,<=,=>,\~},
+	extendedchars=true,
+	sensitive=true,
+	morecomment=[l]{;},  % Line comments start with ;
+	morestring=[b]",      % Strings are enclosed in "
+	% morestring=[b]|,      % Symbols are enclosed in |
+	morekeywords=[2]{ite, distinct, true, false, not, or, and, xor, forall, exists, choose, lambda, let, as}, % logic keywords
+	morekeywords=[3]{Type, Bool, Int, Real, List, BitVec, FloatingPoint},  % types
+	morekeywords=[4]{+,-,*,/,=,>,<,>=,<=,=>},  % infix operators
+	morekeywords=[5]{sat, unsat},
+	commentstyle=\color{gray},        % Comment color
+	keywordstyle=\color{blue},        % Keyword color
+	keywordstyle=[2]\color{purple},   % Control keywords color
+	keywordstyle=[3]\color{teal},     % Data types color
+	keywordstyle=[4]\color{red},      % Logical operators color
+	keywordstyle=[5]\color{magenta},
+	stringstyle=\color{violet},       % String color
+	numberstyle=\color{violet},       % Numeric constants color
+	basicstyle=\ttfamily\footnotesize,             % Use a monospaced font
+	% moredelim=[is][\itshape]{|}{|},   % Enclose symbols in vertical bars in italics
+	numbers=left,                     % Line numbers on the left
+	numberstyle=\tiny\color{gray},    % Line numbers style
+	stepnumber=1,                     % Line numbers step
+	escapeinside={(*@}{@*)},          % Allow LaTeX inside listings
+	showstringspaces=false,           % Do not display spaces as underscores
+	breaklines=false,                   % Automatically break long lines
+	keepspaces=true,
+	showlines=false,
+	mathescape=false,
+	numberblanklines=false
+}
+
+% For inline SMT-LIB code
+\newcommand{\smt}[1]{\lstinline[language=smtlib]{#1}}
+\newcommand{\exxample}{{\mediumfont\itshape{\textcolor{MaterialGreen900}{Example.} }}}
+\setbeamercolor*{structure}{fg=MaterialIndigo400}
+\lstset{language=smtlib}
+
+\newcommand{\binddot}[3]{#1\,#2.\,#3}
+\newcommand{\plur}[2]{{#1}_{1}\,\ldots\,{#1}_{#2}}
+
+\newcommand{\msf}{\mathsf}
+\newcommand{\mbf}{\mathbf}
+
+\newcommand{\ar}{\msf{ar}}
+\newcommand{\Sort}{\msf{Sort}}
+\newcommand{\Rank}{\msf{Rank}}
+\newcommand{\Var}{\msf{Var}}
+
+\newcommand{\Bool}{\mbf{Bool}}
+\newcommand{\true}{\msf{true}}
+\newcommand{\false}{\msf{false}}
+
+\newcommand{\mtt}[1]{{\color{magenta}\texttt{#1}}}
+\newcommand{\sat}{\mtt{sat}}
+\newcommand{\unsat}{\mtt{unsat}}
+
+\newcommand{\all}{\binddot∀}
+\newcommand{\exi}{\binddot∃}
+\newcommand{\nexi}{\binddot∄}
+
+\newcommand{\TYPE}{\mtt{type}}
+\newcommand{\PROP}{\mtt{prop}}
+\newcommand{\KIND}{\mtt{kind}}
+\newcommand{\lam}{\binddot{λ}}
+\newcommand{\pii}{\binddot{Π}}
+\newcommand{\lift}[1]{⦉#1⦊}
+
+\newcommand{\Term}{\msf{Term}}
+\newcommand{\lett}[2]{\mbf{let}\ #1\ \mbf{in}\ #2}
+
+\newcommand{\norm}[1]{}
+
+\newcommand{\TermGrammar}{
+	\begin{array}{l@{\ }r@{\ \ }l@{\quad}l}
+		t ∈ \Term(Σ)
+		 & ⩴ & x                     & \textit{variables}
+		\\
+		 & ∣ & f(\plur t n)          & \textit{function app.}
+		\\
+		 & ∣ & f^σ(\plur t n)        & \textit{sorted function app.}
+		\\
+		 & ∣ & \all {x : σ} t        & \textit{universal quantification}
+		\\
+		 & ∣ & \exi {x : σ} t        & \textit{existential quantification}
+		\\
+		 & ∣ & \lett {x ≔ t_1} {t_2} & \textit{local definition}
+	\end{array}
+}
+
+\newcommand{\eval}[1]{\llbracket\,#1\,\rrbracket }
+\newcommand{\gtext}[1]{\text{{\color{gray}#1}}}
+\newcommand{\LambdaPi}{{\color{MaterialBlue800}\textsc{LambdaPi}}}
+\newcommand{\sysname}[1]{{\color{MaterialGrey800}\textsc{#1}}}
+\newcommand{\toolname}[1]{{\color{MaterialBlueGrey500}\tt{#1}}}
+
+\newcommand{\wrapp}[4]{
+	{\color{#1}{#2}}{#4}{\color{#1}{#3}}}
+\newcommand{\paren}[1]{\wrapp{MaterialGrey600}{\lparen}{\rparen}{#1}}
+\newcommand{\mcomment}[1]{{\color{MaterialIndigo500}{\text{#1}}}}
+\newcommand{\maybe}[1]{\wrapp{MaterialGrey600}{\langle}{\rangle_?}{#1}}
+\newcommand{\many}[1]{\wrapp{MaterialGrey600}{\langle}{\rangle_+}{#1}}
+\newcommand{\any}[1]{\wrapp{MaterialGrey600}{\langle}{\rangle_∗}{#1}}
+\newcommand{\some}[1]{\wrapp{MaterialGrey600}{\langle}{\rangle}{#1}}
+
+\newcommand{\lBrace}{{\lbrace}\hspace{-2.5pt}{\mid}}
+\newcommand{\rBrace}{{\mid}\hspace{-2.5pt}{\rbrace}}
+\newcommand{\iden}[1]{\wrapp{MaterialGrey600}{\lBrace\,}{\,\rBrace}{#1}}
+
+\newcommand{\bappcomma}{{\color{MaterialGrey600}{,}}}
+\newcommand{\bapp}[3]{\mtt{#1}\ {#2} ∗ {#3}}

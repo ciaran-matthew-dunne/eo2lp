@@ -47,46 +47,24 @@
 
 \section{Conclusion and Future Work}\label{sec:conclu}
 
-We have presented a translation from Eunoia to the
-$\lambda\Pi$-calculus modulo rewriting that encodes
-\cvc{5}'s proof system automatically, unlike
-approaches that hand-write soundness lemmas for each
+We have presented an automatic translation from
+Eunoia to the $\lambda\Pi$-calculus modulo rewriting,
+unlike approaches that hand-write soundness lemmas per
 rule~\cite{coltellacciReconstructionSMTProofs2024a,mohamed25leansmt}.
-The trade-off is that the translated rules are taken
-as axioms rather than proved sound; their
-well-typedness and subject reduction are
-nevertheless verified by LambdaPi. Our tool
+Translated rules are axioms, but their well-typedness
+and subject reduction are verified by LambdaPi;
 \texttt{eo2lp} translates all 22 modules of CPC-MINI
-and independently verifies 97\% of 1{,}036 proof
-scripts across 14 SMT-LIB fragments.
-
-Relative to Ethos, the reference checker, our
-pipeline is slower (0.47\,s vs.\ ${<}0.1$\,s
-average) and supports a subset of CPC, but adds two
-semantic guarantees Ethos does not give:
-well-typedness of inference-rule signatures in a
-type system with formal metatheory, and subject
-reduction of side-condition programs---the latter
-surfaced upstream CPC bugs that Ethos missed because
-it only typechecks program clauses at application
-time (\autoref{sec:results}).
-The most direct future work is extending CPC-MINI
-to the full CPC (bitvectors, strings, datatypes,
-reals) and a like-for-like comparison with Ethos.
-Because the encoding lives in LambdaPi, it further
-provides a basis for proving individual CPC rules
-sound directly in $λΠ$, and---in the longer
-term---a route via Dedukti to Rocq, Isabelle/HOL or
-Lean, analogously to
-IsaRare~\cite{lachnitt24isarare}; those downstream
-translations vary in maturity, so this is an
-architectural bet rather than a turnkey pipeline
-today.
-More speculatively, the typed interpretation of
-\autoref{sec:lambdapi} could serve as a working
-formal semantics for Eunoia until an official one
-appears, and a setting in which to study the
-higher-order extensions proposed for
+and verifies 97\% of 1{,}036 proof scripts.
+Relative to Ethos, our pipeline is slower
+(0.47\,s vs.\ ${<}0.1$\,s) and supports a subset of CPC,
+but adds two guarantees Ethos does not---rule-signature
+well-typedness and subject reduction of side-condition
+programs---the latter surfaced upstream CPC bugs.
+Future work includes extending CPC-MINI to the full CPC,
+proving CPC rules sound directly in
+$λΠ$~\cite{lachnitt24isarare}, and using the typed
+interpretation of \autoref{sec:lambdapi} as a setting
+for the higher-order extensions proposed for
 SMT-LIB~3~\cite{barrettSMTLIB3Bringing,smt3-proposal}.
 
 \subsubsection*{Acknowledgements.}

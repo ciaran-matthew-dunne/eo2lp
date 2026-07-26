@@ -22,11 +22,11 @@ Boolean logic, and arithmetic builtins as rewrite
 rules over LambdaPi's integers/rationals
 (e.g.\ $\eo{add}\,(\ev{of\_Z}\,i)\,(\ev{of\_Z}\,j) ↪
 	\ev{of\_Z}\,(i + j)$).
-The prelude also defines a \emph{heterogeneously-typed}
-list type
-$\eo{hlist} : \Set$ whose entries carry their own
-sort, used to encode the
-$\eapp{\eo{var}}{\estr{x_i}\ T_i}$ variables produced
+The prelude also declares the built-in heterogeneous
+list type $\lpo{List} : \Set$ (the encoding of Eunoia's
+$\eo{List}$), together with its constructors
+$\lpo{List::nil}$ and $\lpo{List::cons}$. These hold
+the $\eapp{\eo{var}}{\estr{x_i}\ T_i}$ entries produced
 by $\mbf{elab}$ on binder applications
 (\autoref{sec:eo-elab}, item~2).
 Closed expressions reduce concretely, so CPC's
@@ -57,9 +57,11 @@ It is a modified subset of
 covering logic, integer arithmetic, arrays,
 sets, quantifiers, and uninterpreted functions
 --- 6~theory modules (57~constants),
-8~rule modules (353~rules, 50~programs),
-and 7~program modules (38~programs, 36~macros),
-plus a root module \texttt{Cpc}.
+8~rule modules (353~rules, 50~programs), and
+7~program modules (38~programs, 36~macros),
+plus a root module \texttt{Cpc} that adds
+6~further rules (e.g.\ \texttt{evaluate},
+\texttt{trust}) for 359~rules in total.
 
 CPC-MINI applies three classes of change to the
 upstream CPC.
@@ -124,25 +126,26 @@ caused by CPC rules whose type signatures mix
 integer-only context.
 Such mixed-arithmetic rules are excluded by
 CPC-MINI's type-parameter tightening (change~(ii)
-above); the failure is therefore a \emph{type
-	coverage} gap at the \texttt{Real}/\texttt{Int}
-boundary, not a translation bug. Crucially,
-\emph{zero} failures are caused by a semantic
-disagreement with Ethos: every proof that Ethos
-accepts and we translate is accepted by LambdaPi up
-to coverage and time.
+above); the failure is therefore a known
+\emph{type coverage} gap at the
+\texttt{Real}/\texttt{Int} boundary, not a semantic
+mismatch with Ethos. Crucially, \emph{zero} failures
+are caused by a semantic disagreement: every proof
+that Ethos accepts and we translate is accepted by
+LambdaPi up to coverage and time.
 
-To probe scaling, we ran the translator on a larger
-sample of 439 \texttt{QF\_UF} proofs (up to
-${\sim}5{,}000$ lines each) under a 30-second
-timeout: all 439 check successfully. The encoding's
-overhead over pure type-checking is one $\msf{τ}$
-indirection per type plus rewriting for program
-evaluation; pure type-checking is linear, but the
-rewrite-based program evaluation needed for
-side-conditions and arithmetic can blow up on
-unusually long chains. Outliers in the main
-benchmark are dominated by such chains, not by
-translation bugs.
+% To probe scaling, we ran the translator on a larger
+% sample of 439 \texttt{QF\_UF} proofs (up to
+% ${\sim}5{,}000$ lines each): all 439 check
+% successfully, with median check time 0.49\,s,
+% $p_{95}$ 1.79\,s, and a single outlier of 32.9\,s on
+% a proof generating long rewrite chains. The encoding's
+% overhead over pure type-checking is one $\msf{τ}$
+% indirection per type plus rewriting for program
+% evaluation; pure type-checking is linear, but the
+% rewrite-based program evaluation needed for
+% side-conditions and arithmetic can blow up on
+% unusually long chains. Outliers in the main
+% benchmark are dominated by such chains.
 
 \end{document}

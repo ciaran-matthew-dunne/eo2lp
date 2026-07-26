@@ -1,0 +1,636 @@
+% IJCAR 2026 talk --- 20 minute slot (+5 Q&A).
+%
+% Flow: three parts. Part 1 is the on-ramp --- SMT solvers, the SMT-LIB
+% standard, proof production, Eunoia/Ethos, CPC, LambdaPi (with the
+% interop hub), motivation, then eo2lp itself (pipeline, then the demo
+% pair as its payoff). Part 2 unpacks the two formalisms and the
+% translation; Part 3 is results.
+% Design language lives in talk-ijcar-design.tex.
+% Voice is label-style: slides carry names, artifacts and numbers;
+% the argument is spoken, not printed.
+%
+% Build:  latexmk -lualatex talk-ijcar.tex
+% `handout` collapses overlays to one slide each --- on while we review
+% the deck; drop it to get the incremental builds back for presenting.
+%
+\documentclass[handout, t, lualatex, compress, 11pt]{beamer}
+\usetheme{metropolis}
+% Our own \divider frames open each section, so suppress metropolis's
+% automatic section pages or every part is announced twice.
+\metroset{sectionpage=none, numbering=fraction, progressbar=frametitle}
+
+\usepackage{fontspec}   % not all themes load it; \newfontfamily needs it
+\usepackage{xcolor}
+\usepackage{xcolor-material}
+\usepackage{ebproof}
+\usepackage{unicode-math-input}
+\usepackage{MnSymbol}
+\usepackage{stmaryrd}
+\usepackage{mathtools}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\usepackage{listings}
+\usepackage{array}
+\usepackage{booktabs}
+
+% Broken by hand: left to itself the first line fills and the second sits
+% at 53%, which is the ragged wrap this deck avoids everywhere else.
+\title{Automatically Translating Proof Systems\\for SMT Solvers to the $λΠ$-calculus}
+\author{Ciarán Dunne \and Guillaume Burel}
+\institute{INRIA, ENS Paris-Saclay \quad ensIIE \quad SAMOVAR}
+\date{IJCAR 2026, Lisbon}
+
+\input{talk.macros}
+
+% `unicode-math-input` maps ⤳ to \rightcurvedarrow and ⟦⟧ to
+% \lBrack/\rBrack; no loaded math font defines them.
+\providecommand{\rightcurvedarrow}{\leadsto}
+\providecommand{\lBrack}{\llbracket}
+\providecommand{\rBrack}{\rrbracket}
+
+% ---------------------------------------------------------------------
+% Glyph discipline. Generated .lp files use 14 non-ASCII codepoints;
+% the awkward ones are ⤳ (U+2933) and 𝔹 (U+1D539). listings' `literate`
+% does not match these codepoints at all, so the font must contain
+% them. Of the installed monospace fonts, DejaVu/FreeMono miss ⤳ and 𝔹,
+% JetBrains Mono misses ⤳, ⋅ and ≐. JuliaMono covers all 14.
+%
+% Dependency: JuliaMono at ~/.local/share/fonts/JuliaMono (v0.63.2)
+%   https://github.com/cormullion/juliamono
+% ---------------------------------------------------------------------
+% Scale=1.0: the talk asks the audience to READ generated LambdaPi, so
+% code sits at near-parity with body text rather than at the ~55% it
+% lands on with \scriptsize at a smaller scale. Listings never go below
+% \footnotesize; anything that then overflows gets trimmed, not shrunk.
+\newfontfamily\lpmono{JuliaMono}[Scale=1.0]
+
+% τ is a LambdaPi identifier; \mathsf{τ} renders empty in this deck's
+% math font, so set it in the code font. Recoloured in the design file.
+\newcommand{\tauop}{\text{\lpmono τ}}
+
+\input{talk-ijcar-design.tex}
+
+% Translation-operator notation.
+\newcommand{\tra}[1]{\llbracket\,#1\,\rrbracket}
+\newcommand{\ty}[1]{{\tra{#1}}_{\mbf{ty}}}
+\newcommand{\tm}[1]{{\tra{#1}}_{\mbf{tm}}}
+
+\begin{document}
+
+% Title sits on FLoC cream, like the site's hero band.
+\begingroup
+\setbeamercolor{background canvas}{bg=floccream}
+\frame[plain]{\titlepage}
+\endgroup
+
+
+% =====================================================================
+\divider{Part 1 of 3}{Background}
+% =====================================================================
+
+% What SMT is. Bullets get the full measure so each is one line; the
+% band underneath pairs the solver logos (bullet 1's cast, so always
+% shown) with the sledgehammer joke, which lands with its bullet ---
+% renumber the \uncover if a bullet is added above it. Logos sit in a
+% triangle (cvc5 + z3, veriT below) to keep the band shallow; z3 is
+% raised to centre on cvc5's midline, its cap height being taller.
+\subsection{Satisfiability modulo theories}
+
+\begin{frame}{\secheader}% was "Satisfiability modulo theories"
+	Deciding satisfiability of first-order formulae modulo a theory.
+	\begin{itemize}
+		\item<+-> \code{cvc5}, \code{veriT}, \code{z3}, and many more\ldots
+		\item<+-> ubiquitous in formal methods and automated reasoning.
+		\item<+-> backends for theorem provers, e.g.\ Isabelle's
+		      \code{sledgehammer}.
+	\end{itemize}
+	\vfill
+	% [c], not [b]: the triangle is shorter than the sledgehammer, so
+	% bottom-alignment left their vertical centres misaligned.
+	\noindent\makebox[\textwidth]{%
+		\begin{minipage}[c]{0.48\textwidth}
+			\centering
+			\includegraphics[height=8mm]{cvc5-logo}\hspace{7mm}%
+			\raisebox{-1.5mm}{\includegraphics[height=11mm]{z3-logo}}\\[3mm]
+			\includegraphics[height=8mm]{verit-logo}
+		\end{minipage}\hfill
+		\begin{minipage}[c]{0.48\textwidth}
+			\centering
+			\uncover<3->{\includegraphics[height=0.36\textheight]{isabelle-sledgehammer}}
+		\end{minipage}}
+\end{frame}
+
+
+\begin{frame}{\secheader}% was "The SMT-LIB standard"
+	The \textbf{SMT-LIB standard} gives a common language for solvers.
+	\begin{itemize}
+		\item<+-> concrete syntax for solver interactions.
+		\item<+-> logical semantics based on many-sorted FOL.
+		\item<+-> specifications of theories and logics.
+	\end{itemize}
+	\vfill
+	% One stack (the document, top sheet showing the cover zoomed to
+	% the text block's width), one logic graph (what it specifies).
+	% [c] minipages so the two figures' vertical centres align; the
+	% graph fills its minipage, so the 0.51 is what sizes it. The fan
+	% column is its natural width and the gutter is fixed --- \hfill
+	% plus a too-wide column had put ~23mm between the figures; the
+	% makebox centres the pair in the leftover margin.
+	\noindent\makebox[\textwidth]{%
+		\begin{minipage}[c]{0.29\textwidth}
+			\pagestackfanL
+		\end{minipage}\hspace{7mm}%
+		\begin{minipage}[c]{0.51\textwidth}
+			\logicgraphfig
+		\end{minipage}}
+\end{frame}
+
+
+\begin{frame}{\secheader}% was "Proof production"
+	Proof certificates are not standardized.
+	\begin{itemize}
+		\item<+-> many competing formats: LFSC, Alethe, DRAT.
+		\item<+-> solvers have bespoke inference rules.
+	\end{itemize}
+	\vfill
+	\begin{center}
+		\begin{prooftree}
+			\hypo{p ∧ ¬ p}
+			\infer1[\rulelab{and\_elim}]{p}
+			\hypo{p ∧ ¬ p}
+			\infer1[\rulelab{and\_elim}]{¬ p}
+			\infer2[\rulelab{contra}]{⊥}
+		\end{prooftree}
+	\end{center}
+	\vspace{\gapunit}
+\end{frame}
+
+
+\subsection{Eunoia and Ethos}
+
+\begin{frame}{\secheader}% was "Eunoia and Ethos"
+    \eoname{} is a logical framework for SMT proof systems.
+	\begin{itemize}
+		\item<+-> a signature defines
+		      types, constants, programs, rules.
+		\item<+-> proofs are checked by C++ tool \code{ethos}.
+	\end{itemize}
+	\vfill
+	% Dictionary entries, per the script's marginal note. IPA and
+	% middle dots straight from Fira Sans --- check the log for
+	% "Missing character" if these ever change.
+	% Stacked cards, 0.85 of the measure and centred: headword + IPA on
+	% the first line, definition underneath. Neutral plainbox: Greek
+	% words belong to neither language, so the card must not borrow a
+	% language tint.
+	\noindent\makebox[\textwidth]{%
+		\begin{minipage}{0.85\textwidth}
+			\begin{plainbox}
+				\small
+				\textbf{eu·noi·a} \,{\color{muted}/juːˈnɔɪ.ə/}\, \emph{n.}\\
+				beautiful thinking; a well-disposed mind.
+			\end{plainbox}
+			\begin{plainbox}
+				\small
+				\textbf{e·thos} \,{\color{muted}/ˈiːθɒs/}\, \emph{n.}\\
+				character; the guiding spirit of a community.
+			\end{plainbox}
+		\end{minipage}}
+\end{frame}
+
+
+\begin{frame}[fragile]{\secheader}% was "The Cooperating Proof Calculus"
+	The \textbf{co-operating proof calculus} (CPC) is \code{cvc5}'s proof system.
+	%
+	\begin{itemize}
+		% 593 = declare-rule count in cvc5 proofs/eo/cpc excluding
+		% expert/ (which adds 27 more), at upstream ed5e0807,
+		% 2026-07-15; recount with
+		%   grep -rhE '^\s*\(declare-rule' --include='*.eo' \
+		%     cpc-upstream-repo/proofs/eo/cpc --exclude-dir=expert | wc -l
+		\item<+-> encoded in Eunoia; 593 core rules.
+	\end{itemize}
+	% The const the rule mentions, then the rule; both verbatim from
+	% CPC (theories/Builtin.eo, rules/Booleans.eo), one box, \listsep
+	% between fragments as in the paper.
+	\begin{eobox}
+	\begin{lstlisting}[basicstyle=\lpmono\footnotesize]
+(declare-const and (-> Bool Bool Bool)
+  :right-assoc-nil true)\end{lstlisting}
+	\listsep
+	\begin{lstlisting}[basicstyle=\lpmono\footnotesize]
+(declare-rule and_elim ((Fs Bool) (i Int))
+  :premises (Fs)
+  :args (i)
+  :conclusion (eo::list_nth and Fs i))\end{lstlisting}
+	\end{eobox}
+\end{frame}
+
+
+\begin{frame}{\secheader}% was "LambdaPi"
+	\lpname\ implements the $λΠ$-calculus modulo rewriting.
+	\gap
+	\begin{itemize}
+		\item<+-> Successor to Dedukti.
+		\item<+-> An interactive proof assistant: tactics, an LSP server.
+		\item<+-> A hub for proof interoperability:
+	\end{itemize}
+	\vfill
+	\centerline{\interopfig}
+\end{frame}
+
+
+\begin{frame}{\secheader}% was "Motivation"
+	Ethos already checks CPC proofs.
+	\gap
+	\begin{itemize}
+		\item<+-> \textbf{Independence}: a checker outside the
+		      \code{cvc5} ecosystem.
+		\item<+-> \textbf{Strength}: the calculus itself is
+		      typechecked.
+		\item<+-> \textbf{Interoperability}: CPC proofs enter the hub.
+	\end{itemize}
+\end{frame}
+
+
+% eo2lp closes the on-ramp: the pipeline says what the tool is, the demo
+% pair shows it working, and Part 1 ends on the checkmark.
+\begin{frame}{\secheader}% was "\code{eo2lp}"
+	\begin{center}
+		\pipelinefig
+	\end{center}
+	\begin{itemize}
+		\item<+-> Signature translated \textbf{once}; proofs
+		      \textbf{per problem}.
+		\item<+-> Generic over the signature: no per-rule soundness
+		      lemmas, unlike Alethe reconstruction or \textsc{lean-smt}.
+		\claim<+-> rule signatures typecheck;
+		\claim<+-> programs satisfy subject reduction.
+	\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]{\secheader}% was "\code{cvc5} says \code{unsat}"
+	\begin{plainbox}
+	\begin{lstlisting}[style=smt2, basicstyle=\lpmono\footnotesize]
+(set-logic QF_UF)
+(declare-const p Bool)
+(assert (and p (not p)))
+(check-sat)
+(get-proof)\end{lstlisting}
+	\end{plainbox}
+	\onslide<+->
+		\eoname\ proof script, from \code{-{}-proof-format=cpc}:
+		\begin{eobox}
+		\begin{lstlisting}[basicstyle=\lpmono\footnotesize]
+(assume @p1 (and p (not p)))
+(step @p2 p :rule and_elim :premises (@p1) :args (0))
+(step @p3 (not p) :rule and_elim
+  :premises (@p1) :args (1))
+(step @p4 false :rule contra :premises (@p2 @p3))\end{lstlisting}
+		\end{eobox}
+\end{frame}
+
+
+\begin{frame}[fragile]{\secheader}% was "What \code{eo2lp} produces"
+	\begin{lpbox}
+	\begin{lstlisting}[style=lp, basicstyle=\lpmono\footnotesize]
+require open cpc.Cpc;
+constant symbol p : τ Bool;
+constant symbol {|@p1|} :
+  Proof (APP (APP and p)
+             (APP (APP and (APP not p)) true));
+symbol {|@p2|} ≔ and_elim (of_Z 0) ({|@p1|});
+assert ⊢ {|@p2|} : Proof p;
+symbol {|@p3|} ≔ and_elim (of_Z 1) ({|@p1|});
+assert ⊢ {|@p3|} : Proof (APP not p);
+symbol {|@p4|} ≔ contra ({|@p2|}) ({|@p3|});
+assert ⊢ {|@p4|} : Proof false;\end{lstlisting}
+	\end{lpbox}
+	\begin{uncoverenv}<+->
+		\yes\ \ \code{lambdapi check}, subject reduction on.
+	\end{uncoverenv}
+\end{frame}
+
+
+% =====================================================================
+% Part 2 runs Eunoia formalism -> LambdaPi formalism -> translation
+% without internal dividers; the box tints (green source, blue target)
+% carry the sub-structure.
+% =====================================================================
+\divider{Part 2 of 3}{Translation}
+% =====================================================================
+
+\subsection{Eunoia}
+
+\begin{frame}[fragile]{\secheader}% was "Declarations and attributes"
+	One grammar for terms, types and kinds alike.
+	\begin{disp}
+		\begin{array}{@{}l@{\ }c@{\ }l@{\qquad}l}
+			e ∈ \mbf{eo} & ⩴ & s                             & \mcomment{(symbol)}      \\
+			             & ∣ & \paren{{s}\ e_1\ \ldots\ e_n} & \mcomment{(application)}
+		\end{array}
+	\end{disp}
+	\onslide<+->
+		Attributes determine how $n$-ary applications expand.
+		\begin{eobox}
+		\begin{lstlisting}[basicstyle=\lpmono\footnotesize]
+(declare-const and (-> Bool Bool Bool)
+  :right-assoc-nil true)\end{lstlisting}
+		\listsep
+		\begin{lstlisting}[basicstyle=\lpmono\footnotesize]
+(declare-parameterized-const =
+  ((A Type :implicit)) (-> A A Bool)
+  :chainable and)\end{lstlisting}
+		\end{eobox}
+\end{frame}
+
+
+\begin{frame}[fragile]{\secheader}% was "Programs"
+	Side-conditions are constants with ordered rewrite cases.
+	\begin{eobox}
+	\begin{lstlisting}[basicstyle=\lpmono\footnotesize]
+(program $to_clause ((F1 Bool) (F2 Bool :list))
+  :signature (Bool) Bool
+  ( (($to_clause (or F1 F2)) (or F1 F2))
+    (($to_clause false)      false)
+    (($to_clause F1)         (or F1)) ))\end{lstlisting}
+	\end{eobox}
+	\begin{uncoverenv}<+->
+		Evaluation is by matching, in order, on elaborated arguments.
+	\end{uncoverenv}
+\end{frame}
+
+
+\begin{frame}[fragile]{\secheader}% was "Rules"
+	A rule's conclusion may be computed by such a program.
+	\begin{eobox}
+	\begin{lstlisting}[basicstyle=\lpmono\footnotesize]
+(declare-rule resolution
+  ((C1 Bool) (C2 Bool) (pol Bool) (L Bool))
+  :premises (C1 C2) :args (pol L)
+  :conclusion ($resolve C1 C2 pol L))\end{lstlisting}
+	\end{eobox}
+	\begin{uncoverenv}<+->
+		Encoding this needs \textbf{computation} in the target.
+	\end{uncoverenv}
+\end{frame}
+
+
+\subsection{LambdaPi}
+
+\begin{frame}{\secheader}% was "The $λΠ$-calculus modulo rewriting"
+	\begin{itemize}
+		\item<+-> Terms:
+		      $t ⩴\ x\ ∣\ t_1 ⋅ t_2\ ∣\ \binddot{λ}{x : t_1}{t_2}\ ∣\ \binddot{Π}{x : t_1}{t_2}$
+		% Deliberate break: the two forms fill the second line together,
+		% rather than the grammar trailing alone after a wrap.
+		\item<+-> Symbols, with explicit or implicit parameters:\\
+		      $\lpkw{symbol}\ s\ \any{ρ} : t;$
+		      \quad $ρ ⩴ (x : t) ∣ [x : t]$
+		\item<+-> Computation by rewrite rules:
+		      $\lpkw{rule}\ t ↪ t';$
+		\item<+-> Typechecking is modulo those rules, and LambdaPi
+		      checks they preserve types: \textbf{subject reduction}.
+	\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]{\secheader}% was "Types as terms"
+	Eunoia types become terms of a universe closed under $(⤳)$.
+	\begin{lpbox}
+		\begin{lstlisting}[style=lp, basicstyle=\lpmono\footnotesize]
+symbol Set : TYPE;          // types as terms
+injective symbol τ : Set → TYPE;  // carrier
+rule τ ($A ⤳ $B) ↪ τ $A → τ $B;
+injective symbol Proof : τ Bool → TYPE;\end{lstlisting}
+	\end{lpbox}
+	\begin{uncoverenv}<+->
+		A Tarski universe: a type-theoretic denotational semantics.
+		\par\gap
+		\noindent{\small
+			\begin{tabular}{@{}l@{\qquad}l@{}}
+				\textbf{SMT-LIB models}       & \textbf{$λΠ$ encoding}         \\
+				\midrule
+				$σ$ denotes a set $⟦σ⟧$       & $T : \lpkw{Set}$               \\
+				$⟦f⟧ : ⟦σ_1⟧ × \ldots → ⟦σ'⟧$ & $\tauop\,(T_1 ⤳ \ldots ⤳ T')$ \\
+				satisfies the axioms          & typechecks
+			\end{tabular}}
+	\end{uncoverenv}
+\end{frame}
+
+
+\subsection*{}   % back to the bare section header
+
+\begin{frame}[fragile]{\secheader}% was "Elaboration"
+	$\mbf{elab}_{γ} : \mbf{eo} → \mbf{eo}$, with
+	$γ$ carrying the attributes declared so far.
+	\begin{itemize}
+		\item<+-> Default: left-fold into the application symbol
+		      $\kw{\_}$.
+		      \begin{disp}
+			      \mbf{elab}_{γ}\paren{s\ e_1\ \ldots\ e_n}
+			      = \paren{\kw{\_}\ \paren{\ldots\paren{\kw{\_}\ s\ e_1}\ldots}\ \ e_n}
+		      \end{disp}
+		\item<+-> Attributes override it, per the declaration of $s$.
+	\end{itemize}
+	\begin{eobox}
+		\begin{lstlisting}[basicstyle=\lpmono\footnotesize]
+(and p (not p))
+;; :right-assoc-nil true  =>
+(and p (and (not p) true))\end{lstlisting}
+	\end{eobox}
+	Downstream, every application is binary.
+\end{frame}
+
+
+\begin{frame}[fragile]{\secheader}% was "$\tra{\cdot}_{\mbf{ty}}$ and $\tra{\cdot}_{\mbf{tm}}$"
+	Kinds become LambdaPi types; terms and types become terms.
+	% Size set outside the environment: \disp opens math mode immediately,
+	% and \footnotesize is invalid there (LaTeX warned and half-applied it).
+	{\footnotesize
+	\begin{disp}
+		\begin{array}{@{}r@{\ =\ }l@{\qquad}r@{\ =\ }l}
+			\ty{\kw{Type}}                         & \lpkw{Set}
+			                                       &
+			\tm{e ∗ e'}                            & \tm{e} ⋅ \tm{e'}
+			\\[3mm]
+			\ty{\paren{\paren{\kw{->}} ∗ e} ∗ e'}  & \ty{e} → \ty{e'}
+			                                       &
+			\tm{\paren{\kw{->}}}                   & (⤳)
+			\\[3mm]
+			\ty{e'}                                & \tauop\ \tm{e'}
+			                                       &
+			\tm{s}                                 & \iden s
+		\end{array}
+	\end{disp}}
+	\onslide<+->
+	\exxample A Eunoia type and its image under $\tm{\cdot}$.
+	\begin{eobox}
+		\begin{lstlisting}[basicstyle=\lpmono\footnotesize]
+(-> Bool (BitVec 5))\end{lstlisting}
+	\end{eobox}
+	\begin{lpbox}
+		\begin{lstlisting}[style=lp, basicstyle=\lpmono\footnotesize]
+{|Bool|} ⤳ ({|BitVec|} ⋅ {|5|})\end{lstlisting}
+	\end{lpbox}
+\end{frame}
+
+
+\begin{frame}[fragile]{\secheader}% was "Declarations become symbols"
+	\begin{disp}
+		\begin{array}{@{}l}
+			\epar{\kw{declare-parameterized-const}\ s\ \epar{\vec ρ}\ e}
+			\\[1mm] \quad ⇓ \\[1mm]
+			\lpkw{constant symbol}\ {\iden s}\ \tra{ρ_1}\ldots\tra{ρ_n}
+			: \tauop\ \tm{e};
+		\end{array}
+	\end{disp}
+	\onslide<+->
+		\begin{eobox}
+		\begin{lstlisting}[basicstyle=\lpmono\footnotesize]
+(declare-parameterized-const =
+  ((A Type :implicit)) (-> A A Bool))\end{lstlisting}
+		\end{eobox}
+		\begin{lpbox}
+		\begin{lstlisting}[style=lp, basicstyle=\lpmono\footnotesize]
+constant symbol {|=|} [A : Set] :
+  τ (A ⤳ A ⤳ Bool);\end{lstlisting}
+		\end{lpbox}
+	\begin{uncoverenv}<+->
+		Implicit parameters become $[\,\cdot\,]$; $γ$ gains
+		$\paren{s ↦ α}$.
+	\end{uncoverenv}
+\end{frame}
+
+
+\begin{frame}[fragile]{\secheader}% was "Programs become rewrite rules"
+	One \lptt{sequential symbol}, one rule per case.
+	\begin{lpbox}
+	\begin{lstlisting}[style=lp, basicstyle=\lpmono\footnotesize]
+sequential symbol {|$from_clause|} :
+  τ (Bool ⤳ Bool);
+rule {|$from_clause|} (or $F1 $F2)
+  ↪ {|eo::ite|} ({|eo::eq|} $F2 false)
+      $F1 (or $F1 $F2)
+with {|$from_clause|} ($F1) ↪ $F1;\end{lstlisting}
+	\end{lpbox}
+	\onslide<+->
+		A rule becomes an axiom; its conclusion may call the programs.
+		\begin{lpbox}
+		\begin{lstlisting}[style=lp, basicstyle=\lpmono\footnotesize]
+constant symbol and_elim [Fs : τ Bool]
+  (i : τ Int) (_ : Proof Fs)
+  : Proof ({|eo::list_nth|} and Fs i);\end{lstlisting}
+		\end{lpbox}
+\end{frame}
+
+
+\begin{frame}[fragile]{\secheader}% was "The example again"
+	\begin{lpbox}
+	\begin{lstlisting}[style=lp, basicstyle=\lpmono\footnotesize]
+constant symbol {|@p1|} :
+  Proof (APP (APP and p)
+             (APP (APP and (APP not p)) true));
+symbol {|@p2|} ≔ and_elim (of_Z 0) ({|@p1|});
+assert ⊢ {|@p2|} : Proof p;\end{lstlisting}
+	\end{lpbox}
+	\begin{itemize}
+		\item<+-> \lptt{true} terminator: from
+		      \attrib{right-assoc-nil}.
+		\item<+-> \lptt{APP}: from elaboration into $\kw{\_}$.
+		\item<+-> The \lptt{assert} holds because
+		      $\eo{list\_nth}$ reduces.
+	\end{itemize}
+\end{frame}
+
+
+% =====================================================================
+\divider{Part 3 of 3}{Results}
+% =====================================================================
+
+\begin{frame}{\secheader}% was "\code{eo2lp} and CPC-MINI"
+	\begin{itemize}
+		\item<+-> ${\sim}5{,}500$ lines of OCaml, built against the
+		      LambdaPi API.
+		\item<+-> Hand-written \lptt{Prelude.lp}: ${\sim}335$ lines.
+		\item<+-> \textbf{CPC-MINI}: 22 modules, ${\sim}5{,}000$ lines,
+		      359 rules, 88 programs.
+		\item<+-> Logic, arithmetic, arrays, sets, quantifiers, UF.
+		\item<+-> Three edits to upstream: pruning, type tightening,
+		      bug fixes.
+		\item<+-> One-off cost: translated in ${\sim}100$\,ms,
+		      checked in ${\sim}160$\,ms.
+		\claim<+-> All 22 modules check with subject reduction.
+	\end{itemize}
+\end{frame}
+
+
+\begin{frame}{\secheader}% was "Benchmarks"
+	1{,}036 \code{cvc5} proofs, 14 fragments, 5\,s timeout.
+	\par
+	\noindent{\small
+		\begin{tabular}{@{}l r r r r r@{}}
+			\toprule
+			                      & Tot.             & Pass             & \%          & Chk.        & T/O         \\
+			\midrule
+			Equality              & 200              & 199              & 99          & 0           & 1           \\
+			Arrays                & 383              & 383              & 100         & 0           & 0           \\
+			Linear int.\ arith.\  & 453              & 420              & 93          & 16          & 17          \\
+			\midrule
+			\textbf{Total}        & \textbf{1{,}036} & \textbf{1{,}002} & \textbf{97} & \textbf{16} & \textbf{18} \\
+			\bottomrule
+		\end{tabular}}
+	\begin{itemize}
+		\item<+-> 0.47\,s per proof to translate and check.
+		\item<+-> The 16 check errors are all at the
+		      \eott{Real}/\eott{Int} boundary.
+		\item<+-> No failure is a semantic disagreement with Ethos.
+		\item<+-> Ethos checks in ${<}0.1$\,s and covers all of CPC.
+	\end{itemize}
+\end{frame}
+
+
+\begin{frame}{\secheader}% was "What LambdaPi checks that Ethos does not"
+	Ethos checks proofs; the encoding also checks the calculus.
+	\begin{itemize}
+		\item<+-> Every rule signature is well-typed in $T(Σ_{\cpc})$.
+		\item<+-> Every program satisfies subject reduction.
+	\end{itemize}
+	\begin{uncoverenv}<+->
+		\gap
+		This surfaced bugs in upstream CPC.
+		\begin{itemize}
+			\item<+-> \eott{\$mk\_cong\_rhs} in \eott{Uf.eo} typed
+			      its arguments with the \textbf{codomain} of its
+			      function parameter, not the \textbf{domain}.
+			\item<+-> Ethos typechecks program clauses only at
+			      application time.
+		\end{itemize}
+	\end{uncoverenv}
+\end{frame}
+
+
+\begin{frame}{\secheader}% was "Conclusion"
+	\begin{itemize}
+		\item<+-> An automatic translation from \eoname\ to \lpname,
+		      at the level of the framework rather than rule by rule.
+		\item<+-> 22 modules typechecked; 1{,}002 of 1{,}036 proofs at
+		      0.47\,s each.
+		\item<+-> Rules become axioms, but LambdaPi typechecks them.
+	\end{itemize}
+	\begin{uncoverenv}<+->
+		\gap
+		Next: the rest of CPC; its rules proved sound in $λΠ$;
+		SMT-LIB~3.
+	\end{uncoverenv}
+	\begin{uncoverenv}<+->
+		\gap
+		\begin{center}
+			\lpmono\normalsize github.com/deducteam/eo2lp
+		\end{center}
+	\end{uncoverenv}
+\end{frame}
+
+\end{document}

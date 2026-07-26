@@ -1,0 +1,633 @@
+% ---------------------------------------------------------------------
+% Design language for the IJCAR talk.
+%
+% The chrome is FLoC 26's (floc26.org, sampled from the site assets):
+% royal blue #1D3C8A, azulejo gold #F6B655, cream #F4F2F0. The deck's
+% one idea --- colour encodes SOURCE vs TARGET --- keeps its own green
+% for the source language and takes the brand blue for the target:
+%
+%   green   = Eunoia   (source)   the pre-rebrand teal
+%   blue    = LambdaPi (target)   the brand blue itself
+%   gold    = the FLoC accent: chrome (progress bar, rules, tile
+%             band) and \alert emphasis (darkened for text); never a
+%             language, so it can sit next to either
+%   ink     = everything else
+%   muted   = supporting detail, comments, grammar delimiters
+%
+% Chrome comes from the site: solid blue frametitle band with cream
+% text (their section bands), gold progress bar (their accents), and
+% the azulejo tile strip as a footer on every page --- floc-tiles.png,
+% cut seamlessly from the site's own strip asset; the white letter
+% tiles hidden in it are theirs. The frame number sits in a cream
+% square at the band's right end, echoing those letter tiles.
+%
+% Consequences, enforced below:
+%   - the header band and footer tiles are the only blue chrome; body
+%     structure (bullets, alerts) stays ink so blue keeps meaning
+%     "LambdaPi" in content
+%   - no red anywhere; \alert is bold in darkened FLoC gold
+%   - listings are two-tone, not the 5-colour smtlib rainbow
+%   - no line numbers
+%   - title and divider frames sit on FLoC cream (their hero band);
+%     content frames stay near-white
+% ---------------------------------------------------------------------
+
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, fit, backgrounds, shadows.blur}
+
+% ---- measure, margins and vertical rhythm ---------------------------
+% At 12pt the line measure was ~56 characters, below the comfortable
+% 60-75 band --- which is why the type read as oversized and crowded at
+% the same time. 11pt with slightly tighter margins gives ~63.
+\setbeamersize{text margin left=8mm, text margin right=8mm}
+
+% Body text indented 24pt from the frametitle's left edge looked like a
+% misalignment rather than a hierarchy. Pull the lists back under it.
+\setlength{\leftmargini}{12pt}
+\setlength{\leftmarginii}{12pt}
+\setlength{\leftmarginiii}{12pt}
+
+% One spacing unit, derived from the body size, replacing the ad-hoc
+% mix of \vspace{1mm}/{2mm}/{3mm} that was scattered through the deck.
+\newlength{\gapunit}
+\setlength{\gapunit}{0.6\baselineskip}
+\newcommand{\gap}{\vspace{\gapunit}}
+
+% Listings sit in the same rhythm instead of carrying their own skips.
+\lstset{aboveskip=\gapunit, belowskip=\gapunit}
+
+% Same for booktabs tables: the top rule carries its own air, so a table
+% under a caption line needs no \vspace of its own. (Half a unit, not a
+% full one --- the rule is already doing part of the separating.)
+\setlength{\abovetopsep}{0.5\gapunit}
+
+% metropolis pins the frametitle's leftskip to its own padding length
+% (2.2ex), independent of the text margin, so the title hangs ~12pt to
+% the left of every body element. Measured on p.21: title at x=23px,
+% body at x=48px. That reads as a misalignment rather than a hierarchy.
+% Re-issue the template with the leftskip tied to the text margin,
+% leaving the padding length alone --- it also drives the vertical
+% struts that give the title block its height.
+\makeatletter
+\defbeamertemplate{frametitle}{aligned}{%
+	\nointerlineskip%
+	\begin{beamercolorbox}[%
+			wd=\paperwidth,%
+			sep=0pt,%
+			leftskip=\beamer@leftmargin,%
+			rightskip=\beamer@rightmargin,%
+		]{frametitle}%
+		\metropolis@frametitlestrut@start%
+		\insertframetitle%
+		\nolinebreak%
+		\metropolis@frametitlestrut@end%
+	\end{beamercolorbox}%
+}
+\setbeamertemplate{frametitle}[aligned]
+\makeatother
+
+% metropolis implements `progressbar=frametitle` by APPENDING the bar to
+% whatever the frametitle template is when \metroset runs; re-issuing the
+% template above therefore threw it away, and the deck shipped with no
+% progress indicator at all. Re-append it here.
+\addtobeamertemplate{frametitle}{}{%
+	\usebeamertemplate*{progress bar in head/foot}}
+
+% ---- palette --------------------------------------------------------
+% FLoC 26 brand colours, sampled from floc26.org assets. The gold is
+% 1.8:1 against white --- chrome, never text.
+\definecolor{flocblue}{HTML}{1D3C8A}    % site bands, tile blue
+\definecolor{flocamber}{HTML}{F6B655}   % tile gold
+\definecolor{floccream}{HTML}{F4F2F0}   % hero background
+\colorlet{eocol}{MaterialTeal700}     % Eunoia
+\colorlet{eobg}{MaterialTeal50}
+\colorlet{lpcol}{flocblue}            % LambdaPi
+\colorlet{lpbg}{flocblue!6}
+\colorlet{ink}{MaterialGrey900}
+\colorlet{muted}{MaterialGrey600}
+\colorlet{rule}{MaterialGrey400}
+
+% ---- inline code ----------------------------------------------------
+% Prose used bare \texttt, which reaches for the theme's Fira Mono at the
+% full body size: measured 10.8pt of ink against the 9pt of the JuliaMono
+% inside the boxes, so a passing mention of a tool name shouted louder
+% than the generated code the audience is asked to read. One family for
+% all code, scaled to the body's x-height so it also behaves in
+% frametitles, and the source/target colour rule applies inline too.
+%
+% \text{} rather than a bare font switch: \kw and friends are used inside
+% math displays, where \newfontfamily switches are invalid.
+% (\lpcode would clash with LuaTeX's protrusion primitive; the tt suffix
+% follows \mtt, which the paper's macros already use for the same job.)
+% Ligatures off: JuliaMono is a programming font and renders -> as a
+% single arrow glyph, but \kw{->} is the literal Eunoia token. (The
+% listings font escapes this because listings sets every character
+% separately, which breaks the ligature lookup.)
+% -calt as well as the ligature keys: JuliaMono builds -> from contextual
+% ALTERNATES, which Ligatures=NoContextual (i.e. -clig) does not touch.
+\newfontfamily\lpmonoinline{JuliaMono}[Scale=MatchLowercase,
+	Ligatures={NoCommon, NoContextual}, RawFeature={-calt}]
+\newcommand{\code}[1]{\text{\lpmonoinline #1}}    % tools, flags, output
+\newcommand{\eott}[1]{\text{\lpmonoinline\color{eocol}#1}}   % Eunoia
+\newcommand{\lptt}[1]{\text{\lpmonoinline\color{lpcol}#1}}   % LambdaPi
+
+% ---- kill the inherited chrome --------------------------------------
+% talk.macros sets structure to indigo and recolours per section; make
+% it neutral once, here, so no \setbeamercolor is needed per section.
+% Body structure stays ink (not brand blue): in content, blue means
+% "LambdaPi", and a bullet must not borrow it.
+\setbeamercolor*{structure}{fg=ink}
+\setbeamercolor*{normal text}{fg=ink}
+\setbeamercolor*{section in head/foot}{fg=muted}
+\setbeamercolor*{subsection in head/foot}{fg=muted}
+
+% ---- FLoC chrome ----------------------------------------------------
+% Header: the site's solid blue band, cream text. The aligned template
+% above already spans \paperwidth, so setting bg is all it takes.
+\setbeamercolor*{frametitle}{fg=floccream, bg=flocblue}
+% Since the header is orientation (section · subsection), not content,
+% it cedes its size: \small against metropolis's \large, and the
+% band's padding comes down with it. The font alone barely moves the
+% band (10.4mm -> 9.9): the struts are padding-dominated, and the
+% padding is a fixed length. Trimming it is safe now --- the aligned
+% frametitle template above no longer uses it for leftskip, only the
+% struts read it. Measured band: 10.4mm at \large/2.2ex, 8.5mm here.
+\setbeamerfont{frametitle}{size=\small}
+\makeatletter
+\setlength{\metropolis@frametitle@padding}{1.5ex}
+\makeatother
+
+% Progress bar under the band: gold fill on a pale blue track, thick
+% enough to read as an accent rather than a hairline.
+\setbeamercolor{progress bar}{fg=flocamber, bg=flocblue!18}
+\makeatletter
+\setlength{\metropolis@progressinheadfoot@linewidth}{1.4pt}
+\setlength{\metropolis@titleseparator@linewidth}{1.4pt}
+\makeatother
+
+% Title page: blue title, gold separator rule (metropolis draws it).
+\setbeamercolor{title}{fg=flocblue}
+\setbeamercolor{title separator}{fg=flocamber}
+
+% ---- frame headers name the position, not the slide -----------------
+% Convention (Ciarán, 2026-07-26): the frametitle is the current
+% section, qualified by the current subsection when one is set ---
+% orientation lives in the header, specifics live on the slide and in
+% the spoken script. Every content frame opens
+% \begin{frame}{\secheader}; a \subsection{...} before a run of frames
+% qualifies them, \subsection*{} returns to the bare section header.
+% The subsection sits in a cream-blue blend: readable on the band,
+% clearly subordinate to the section. Emptiness is tested by width ---
+% \insertsubsectionhead has no reliably \ifx-able empty form.
+\newlength{\subsecheadw}
+\newcommand{\secheader}{%
+	\insertsectionhead
+	\settowidth{\subsecheadw}{\insertsubsectionhead}%
+	\ifdim\subsecheadw>0pt
+		{\color{floccream!70!flocblue}\ ·\ \insertsubsectionhead}%
+	\fi}
+
+% Footer: the FLoC azulejo strip, full-bleed at the bottom of every
+% frame (plain ones included --- on the site the strip separates
+% sections, so dividers keep it). Drawn on the background canvas, so
+% it reserves no layout space; floc-tiles.png is baked at exactly
+% \paperwidth : \tilebandh (128:4), so width x height is not a stretch.
+\newlength{\tilebandh}
+\setlength{\tilebandh}{4mm}
+\setbeamertemplate{background canvas}{%
+	\usebeamercolor{background canvas}%
+	\begin{tikzpicture}
+		\useasboundingbox (0,0) rectangle (\the\paperwidth,\the\paperheight);
+		\ifbeamercolorempty[bg]{background canvas}{}{%
+			\fill[color=bg] (0,0) rectangle (\the\paperwidth,\the\paperheight);}
+		\node[anchor=south west, inner sep=0pt] at (0,0)
+		{\includegraphics[width=\paperwidth, height=\tilebandh]{floc-tiles}};
+	\end{tikzpicture}}
+
+% Frame number: a cream square sitting on the strip's right end, blue
+% numeral --- the strip hides white letter tiles, this is the deck's
+% own. Replaces the metropolis footline (numbering=fraction), whose
+% ~11mm of reserved height the band does not need; the text block only
+% grows. Plain frames (title, dividers) get no number, as before.
+% 0.3pt taller than the band: at some rasterisations the image and the
+% node round to different pixel heights and a hairline of pattern shows
+% over the tile; the overhang lands cream-on-white, invisible.
+\setbeamertemplate{footline}{%
+	\begin{beamercolorbox}[wd=\paperwidth, sep=0pt, right]{footline}%
+		\tikz\node[fill=floccream, minimum width=\tilebandh,
+			minimum height={\dimexpr\tilebandh+0.3pt\relax}, inner sep=0pt,
+			font=\tiny, text=flocblue] {\insertframenumber};%
+	\end{beamercolorbox}}
+
+% \alert wears the FLoC gold: with Eunoia back on teal no language
+% claims it, so the brand accent is free for emphasis (the site uses
+% its orange the same way). The tile gold itself is 1.8:1 on white ---
+% an accent, not a text colour --- so alerts take the same hue
+% darkened to 5.2:1. Weight comes along: gold alone at \small body
+% sizes is not enough of a signal.
+\definecolor{alertgold}{HTML}{96610D}
+\setbeamercolor*{alerted text}{fg=alertgold}
+\setbeamerfont{alerted text}{series=\bfseries}
+
+% \mtt marks Eunoia symbols, so it takes the Eunoia colour (was magenta)
+% and the code family (was the theme's mono at body size).
+\renewcommand{\mtt}[1]{\eott{#1}}
+
+% "Example." led in MaterialGreen900; make it neutral and quiet.
+\renewcommand{\exxample}{{\itshape\color{muted}Example.\ }}
+
+% Grammar annotations were MaterialIndigo500 --- indigo now means
+% "LambdaPi", so these must not borrow it.
+\renewcommand{\mcomment}[1]{{\color{muted}{\text{#1}}}}
+
+% \smt sets language=smtlib explicitly, which resets to the language's
+% own 5-colour keyword styles. Pin it to the two-tone style.
+\renewcommand{\smt}[1]{\lstinline[style=eo, basicstyle=\lpmonoinline]{#1}}
+
+% ---- semantic text macros -------------------------------------------
+\newcommand{\eoterm}[1]{{\color{eocol}#1}}   % a Eunoia thing, in prose
+\newcommand{\lpterm}[1]{{\color{lpcol}#1}}   % a LambdaPi thing, in prose
+\newcommand{\eoname}{\eoterm{\textbf{Eunoia}}}
+\newcommand{\lpname}{\lpterm{\textbf{LambdaPi}}}
+\renewcommand{\LambdaPi}{\lpname}
+% τ appears inside math displays, so it takes the inline scale, not the
+% listings scale --- at Scale=1.0 it sat a size above the surrounding math.
+\renewcommand{\tauop}{\lptt{τ}}
+
+% ---- pass/fail marks (the only pictorial marks in the deck) ---------
+% Deliberately uncoloured: teal and indigo mean "Eunoia" and
+% "LambdaPi", and a status glyph must not borrow either.
+\newcommand{\yes}{{\color{ink}$\checkmark$}}
+\newcommand{\no}{{\color{muted}$\times$}}
+
+% A claim item: a list entry marked ✓ rather than bulleted.
+% Plain \item[\yes] misaligns. beamer \llap's item labels, so the ink's
+% RIGHT edge is pinned \labelsep before the text and a label wider than
+% the bullet grows leftwards: the checkmark started 6pt left of the
+% frametitle, outside the deck's grid entirely. A negative kern after the
+% mark pulls the whole label back into the marker column (measured: ink
+% from 57px to 68px, against 74px for the bullets and 63px for the title).
+% Takes beamer's overlay spec the way \item does: \claim<+-> ...
+\newlength{\claimpull}
+\setlength{\claimpull}{4pt}
+\makeatletter
+\newcommand{\claim@mark}{\yes\hspace*{-\claimpull}}
+\def\claim@ov<#1>{\item<#1>[\claim@mark]}
+\newcommand{\claim}{\@ifnextchar<{\claim@ov}{\item[\claim@mark]}}
+\makeatother
+
+% ---- listings: two-tone, not a rainbow ------------------------------
+\lstdefinelanguage{lambdapi}{
+	morekeywords={symbol, constant, sequential, injective, rule, with,
+			require, open, assert, let, in, notation, unif_rule, builtin,
+			opaque, protected, private, inductive, TYPE},
+	morekeywords=[2]{Set, Proof, Type},
+	alsoletter={:,-,>,|,$},
+	sensitive=true,
+	morecomment=[l]{//},
+	morestring=[b]",
+}
+
+% Eunoia source listings.
+\lstdefinestyle{eo}{
+	language=smtlib,
+	basicstyle=\lpmono\small\color{ink},
+	keywordstyle=\color{eocol}\bfseries,
+	keywordstyle=[2]\color{ink},
+	keywordstyle=[3]\color{eocol},
+	keywordstyle=[4]\color{ink},
+	keywordstyle=[5]\color{eocol}\bfseries,
+	commentstyle=\color{muted}\itshape,
+	stringstyle=\color{muted},
+	numbers=none,   % talk.macros bakes numbers=left into `smtlib` itself
+	extendedchars=true,
+	showstringspaces=false,
+}
+
+% Generated LambdaPi listings.
+\lstdefinestyle{lp}{
+	language=lambdapi,
+	basicstyle=\lpmono\small\color{ink},
+	keywordstyle=\color{lpcol}\bfseries,
+	keywordstyle=[2]\color{lpcol},
+	commentstyle=\color{muted}\itshape,
+	stringstyle=\color{muted},
+	numbers=none,   % talk.macros bakes numbers=left into `smtlib` itself
+	extendedchars=true,
+	showstringspaces=false,
+}
+
+% No line numbers: nothing in the deck ever refers to one, they were the
+% only reason the snippet boxes needed 14pt of left padding against 3pt of
+% right, and on a one-line snippet a lone "1" is pure noise.
+
+% SMT-LIB input is neither the source nor the target language. The
+% pipeline figure already draws .smt2 as a neutral node; its listing has
+% to agree, or teal ends up meaning "Eunoia, and also this other thing".
+\lstdefinestyle{smt2}{
+	style=eo,
+	keywordstyle=\color{ink}\bfseries,
+	keywordstyle=[2]\color{ink},
+	keywordstyle=[3]\color{ink},
+	keywordstyle=[4]\color{ink},
+	keywordstyle=[5]\color{ink}\bfseries,
+}
+
+\lstset{style=eo}
+
+% ---- snippet boxes --------------------------------------------------
+% The paper wraps every code fragment in an eobox/lpbox (preamble.tex).
+% Adopted here, with one change: the paper's snippet style is a
+% six-colour scheme (pink commands, blue attributes, teal builtins,
+% purple types), which would reimport the rainbow this deck removed.
+% Instead the BOX carries the language identity via its tint and rule,
+% and the code inside keeps the two-tone discipline. The container does
+% the semantic work, so the type can stay quiet.
+\usepackage{tcolorbox}
+\tcbuselibrary{skins}
+
+\colorlet{eoboxbg}{eocol!5}
+\colorlet{lpboxbg}{lpcol!5}
+
+% listings inserts trivlist glue inside the box; zero it out.
+\newcommand{\snipsetup}{\topsep=0pt \partopsep=0pt \parsep=0pt \parskip=0pt
+	\lstset{aboveskip=0pt, belowskip=0pt}}
+
+% Padding is symmetric now that the line-number gutter is gone, and the
+% skips are a full \gapunit: at 0.5 they measured 5pt against a 13.6pt
+% body line, so prose sat closer to the code frames than to itself --- on
+% p16 a single line was 5pt from the box above and 5.4pt from the box
+% below, captioning both.
+%
+% The skips are not free: measured to the text block (not the page
+% bottom), the fullest frames had ~1-8pt of slack, so p2, p4 and p20 each
+% had to give the space back --- by dropping a \gap that the larger skip
+% now provides, and on p2 by joining the continuation lines. Anything
+% added to those frames from here needs the same treatment.
+\tcbset{snippet/.style={enhanced, arc=0pt, boxrule=0.6pt,
+			left=6pt, right=6pt, top=1pt, bottom=1pt,
+			before skip=\gapunit, after skip=\gapunit}}
+
+\newenvironment{eobox}{%
+	\begin{tcolorbox}[snippet, colback=eoboxbg, colframe=eocol!40]\snipsetup
+			}{\end{tcolorbox}}
+
+\newenvironment{lpbox}{%
+	\begin{tcolorbox}[snippet, colback=lpboxbg, colframe=lpcol!40]\snipsetup
+			}{\end{tcolorbox}}
+
+% Neutral container, for code that belongs to neither language.
+\newenvironment{plainbox}{%
+	\begin{tcolorbox}[snippet, colback=white, colframe=rule]\snipsetup
+			}{\end{tcolorbox}}
+
+% Thin rule between fragments sharing one box (as in the paper).
+% \hrule, not \rule-in-a-paragraph: a paragraph line carries
+% \baselineskip, which opened almost a full line of air ABOVE the
+% hairline and none below --- both split listings read top-heavy.
+% Spacing follows the booktabs convention (0.4ex above a midrule,
+% 0.65ex below): more GLUE below than above, because the line above
+% already contributes its mostly-empty descender band while the caps
+% below reach the top of their box --- the INK gaps then read equal.
+% Scaled up ~2x from booktabs' table-density values and then tuned on
+% a 300dpi render: 0.9/1.05ex measures ~2.5mm of ink gap on each side.
+\newcommand{\listsep}[1][eocol]{%
+	\par\vspace{0.9ex}%
+	{\color{#1!30}\hrule height 0.3pt}%
+	\vspace{1.05ex}}
+
+% ---- abstract syntax vocabulary -------------------------------------
+% Policy: math displays carry ABSTRACT syntax (metavariables, schemas,
+% operators); concrete code only ever appears inside a snippet box.
+% Grammar terminals are still concrete tokens, marked with \kw/\attr so
+% they read as terminals rather than as pasted code.
+\newcommand{\kw}[1]{\text{\lpmonoinline\bfseries\color{eocol}#1}}
+\newcommand{\attrib}[1]{\eott{:#1}}
+\newcommand{\lpkw}[1]{\text{\lpmonoinline\bfseries\color{lpcol}#1}}
+\newcommand{\epar}[1]{%
+	\wrapp{muted}{\text{\lpmonoinline(}}{\text{\lpmonoinline)}}{#1}}
+
+% ---- displays -------------------------------------------------------
+% $$...$$ centres on the slide and takes TeX's own fixed display skips, so
+% each display landed on a left edge of its own --- measured 161pt, 258pt
+% and 298pt on p14 alone --- while the frametitle and every body element
+% share one edge. Displays join that edge and the \gapunit rhythm.
+% Inside a list it flushes to the item's text edge, which is what you
+% want there. Also keeps abstract syntax out of \[...\], which cannot be
+% left-aligned without fleqn.
+\newenvironment{disp}
+	{\par\vspace{\gapunit}\noindent$\displaystyle}
+	{$\par\vspace{\gapunit}}
+
+% ---- section dividers: typographic, not full-bleed -------------------
+% Opening a beamer section has no visual effect (metropolis has no
+% headline and sectionpage is off) --- it is kept for the PDF outline.
+% FLoC-styled: cream ground (the site's hero band), blue title, gold
+% rule; the tile strip arrives via the background canvas. The old
+% per-part colour argument is gone --- part colours would fight the
+% brand scheme.
+% #1 part label, #2 title
+\newcommand{\divider}[2]{%
+	\section{#2}%
+	\begingroup
+	\setbeamercolor{background canvas}{bg=floccream}%
+	\begin{frame}[plain]
+		\vfill
+		\hspace{0.12\textwidth}%
+		\begin{minipage}{0.8\textwidth}
+			{\color{muted}\normalsize #1}\\[1.5mm]
+			{\color{flocblue}\Huge\textbf{#2}}\\[3mm]
+			{\color{flocamber}\rule{0.3\textwidth}{1.4pt}}
+		\end{minipage}
+		\vfill
+	\end{frame}
+	\endgroup}
+
+% ---- the pipeline diagram -------------------------------------------
+% Columns carry the language (teal = Eunoia, indigo = LambdaPi), so the
+% two eo2lp arrows are parallel and it is visibly the same translation
+% applied to a signature and to a proof. Rows carry the frequency:
+% the signature is translated once, proofs once per problem.
+\newcommand{\pipelinefig}{%
+	\resizebox{\textwidth}{!}{%
+		\begin{tikzpicture}[
+			x=1cm, y=1cm,
+			box/.style={draw, rounded corners=1.5pt, align=center,
+					font=\footnotesize, inner xsep=4pt, inner ysep=3.5pt,
+					minimum height=7.5mm, minimum width=21mm},
+			eo/.style={box, draw=eocol, fill=eobg, text=eocol},
+			lp/.style={box, draw=lpcol, fill=lpbg, text=lpcol},
+			neutral/.style={box, draw=rule, text=ink, minimum width=16mm},
+			tool/.style={font=\scriptsize\itshape, text=muted,
+					inner sep=1.5pt, fill=white},
+			side/.style={font=\scriptsize\itshape, text=muted, anchor=east},
+			ar/.style={-{Stealth[length=4.5pt]}, draw=muted, semithick},
+		]
+		% --- signature row (once) ---
+		\node[eo] (cpc)  at (3.2, 1.45) {CPC signature};
+		\node[lp] (lcpc) at (7.0, 1.45) {CPC encoding};
+
+		% --- proof row (per problem) ---
+		\node[neutral] (smt)  at (0.0, 0) {\texttt{.smt2}};
+		\node[eo]      (prf)  at (3.2, 0) {proof script};
+		\node[lp]      (lprf) at (7.0, 0) {\texttt{.lp} proof};
+		\node[neutral] (ok)   at (10.4, 0) {\yes\ checked};
+
+		\draw[ar] (cpc)  -- node[tool, above] {eo2lp} (lcpc);
+		\draw[ar] (smt)  -- node[tool, above] {cvc5} (prf);
+		\draw[ar] (prf)  -- node[tool, above] {eo2lp} (lprf);
+		\draw[ar] (lprf) -- node[tool, above] {lambdapi} (ok);
+
+		% the encoded signature is what the proof is checked against
+		\draw[ar, dashed] (lcpc) -- node[tool, right, xshift=1pt]
+		{checked against} (lprf);
+
+			\node[side] at (-0.55, 1.45) {once};
+			\node[side] at (-0.55, 0)    {per problem};
+		\end{tikzpicture}}}
+
+% ---- the SMT-LIB page stack -----------------------------------------
+% Real pages of the standard, fanned about a shared bottom-left corner.
+% The artefact makes the "this is a 112-page document" point without
+% saying it (it had a "v2.6, 104 pages" caption; cut). Static by
+% design: the stack is scene-setting, not an argument being built, so
+% it earns no clicks. (The animated variants live in talk-pagestack.tex
+% if that ever changes.)
+% Requires smtlib.pdf next to the .tex --- the v2.7 reference
+% (r2025-07-07); fetch URL in talk-pagestack.tex. PDF page 77 is
+% Chapter 5 (Logical Semantics of SMT-LIB Formulas), the part our
+% encoding parallels, so it sits in the fan; pdf 55 is a near-blank
+% part divider, avoid it.
+% 2.3cm: the old 2.0-vs-2.4 ceiling came from the caption line that
+% used to sit under the fan; caption gone, the stack earned some of
+% the space back (the logic graph beside it gave up width in trade).
+\newcommand{\pgstackw}{2.3cm}
+\newcommand{\pgstackh}{3.253cm}   % A4 ratio: 2.3 * sqrt(2)
+\tikzset{a4page/.style={
+	draw=rule, fill=white, line width=0.4pt,
+	minimum width=\pgstackw, minimum height=\pgstackh, inner sep=0pt,
+	blur shadow={shadow blur steps=10, shadow xshift=1.2pt,
+		shadow yshift=-1.6pt, shadow opacity=40}}}
+% Two fans, mirror images, centred as a pair with a fixed gutter (they
+% originally sat at the ends of the text width bracketing a caption;
+% caption cut, gap closed). The left fan pivots on its bottom-left
+% corner and opens leftward; the right fan pivots on its bottom-right
+% corner and opens rightward, so the two upright top sheets face
+% inward. The cover is the left fan's top sheet; every other page is
+% just recognisably "dense text". Sheet step is 4 degrees (was 8),
+% tightened to pull the deepest sheet's peak corner down --- the peak
+% sits at w*sin(step*4) + h*cos(step*4) above the pivot, so most of the
+% saving is visual tidiness rather than raw height.
+\newcommand{\pagestackfanL}{%
+	\begin{tikzpicture}
+		\foreach \i/\pg in {5/90, 4/77, 3/45, 2/25} {
+			\pgfmathsetmacro{\rot}{(\i-1)*4}
+			\node[a4page, rotate around={\rot:(0,0)}, transform shape,
+				anchor=south west] at (0,0)
+				{\includegraphics[width=\pgstackw, page=\pg]{smtlib.pdf}};
+		}
+		% Top sheet: the cover ZOOMED, not whole --- drawn entire, its
+		% title is ~0.5mm tall. The window is the authors line (the
+		% widest band) plus ~20bp of air each side, aspect-matched to
+		% the sheet so it fills it exactly, and positioned so the text
+		% block (title top to release bottom) is vertically centred in
+		% it. Title spans ~75% of the sheet. Trim in bp on the 612x792
+		% letter page, measured off a render; re-measure if smtlib.pdf
+		% changes revision.
+		\node[a4page, anchor=south west] at (0,0)
+			{\includegraphics[width=\pgstackw, page=1,
+					trim=138bp 173bp 138bp 144bp, clip]{smtlib.pdf}};
+	\end{tikzpicture}}
+\newcommand{\pagestackfanR}{%
+	\begin{tikzpicture}
+		\foreach \i/\pg in {5/100, 4/80, 3/60, 2/35, 1/13} {
+			\pgfmathsetmacro{\rot}{(\i-1)*4}
+			\node[a4page, rotate around={-\rot:(0,0)}, transform shape,
+				anchor=south east] at (0,0)
+				{\includegraphics[width=\pgstackw, page=\pg]{smtlib.pdf}};
+		}
+	\end{tikzpicture}}
+
+% ---- the SMT-LIB logic graph ----------------------------------------
+% A subset of the standard's logic-inclusion DAG (smt-lib.org draws
+% all ~40; the slide needs the shape, not the census). Eight logics:
+% the base logics the benchmarks exercise (QF_UF, QF_LIA, QF_AX),
+% their joins, and the quantified closures up to AUFLIA. Arrows read
+% "is included in". Neutral ink/muted like the pipeline's .smt2 node:
+% SMT-LIB is neither the source nor the target language. The lone
+% X-crossing in the middle is authentic --- the real graph is a
+% thicket, and a planar redraw would misrepresent it politely.
+% Sized by the caller: fills \linewidth, so put it in a minipage of
+% the width the slide grants it.
+\newcommand{\logicgraphfig}{%
+	\resizebox{\linewidth}{!}{%
+	\begin{tikzpicture}[
+		x=1cm, y=1cm,
+		logic/.style={font=\footnotesize, text=ink, inner sep=2.5pt},
+		ar/.style={-{Stealth[length=4pt]}, draw=muted, thin},
+	]
+	\node[logic] (qfuf)     at (0, 1.5)     {\code{QF\_UF}};
+	\node[logic] (qflia)    at (0, 0)       {\code{QF\_LIA}};
+	\node[logic] (qfax)     at (0, -1.5)    {\code{QF\_AX}};
+	\node[logic] (qfuflia)  at (2.4, 0.75)  {\code{QF\_UFLIA}};
+	\node[logic] (lia)      at (2.4, -0.75) {\code{LIA}};
+	\node[logic] (uflia)    at (4.8, 0.75)  {\code{UFLIA}};
+	\node[logic] (qfauflia) at (4.8, -0.75) {\code{QF\_AUFLIA}};
+	\node[logic] (auflia)   at (7.0, 0)     {\code{AUFLIA}};
+	\draw[ar] (qfuf)     -- (qfuflia);
+	\draw[ar] (qflia)    -- (qfuflia);
+	\draw[ar] (qflia)    -- (lia);
+	\draw[ar] (qfax)     to[bend right=10] (qfauflia);
+	\draw[ar] (qfuflia)  -- (uflia);
+	\draw[ar] (lia)      -- (uflia);
+	\draw[ar] (qfuflia)  -- (qfauflia);
+	\draw[ar] (uflia)    -- (auflia);
+	\draw[ar] (qfauflia) -- (auflia);
+	\end{tikzpicture}}}
+
+% ---- proof-tree rule labels (ebproof) --------------------------------
+% Quiet, mono, muted: the tree's shape is the point, not the rule names.
+\newcommand{\rulelab}[1]{{\color{muted}\scriptsize\code{#1}}}
+
+% ---- the interoperability hub ---------------------------------------
+% Ported from talk.tex and restyled: LambdaPi centre in indigo (it is
+% the target language), provers in ink, translators as muted mono arrow
+% labels, arrows in the pipeline's own style. The PVS arrow was
+% unlabelled in the source; left that way rather than guessing a tool.
+% 0.88, not 0.92: at 0.92 the hub frame ran 8pt past the text block.
+\newcommand{\interopfig}{%
+	\resizebox{0.88\textwidth}{!}{%
+	\begin{tikzpicture}[
+		x=1cm, y=1cm,
+		prover/.style={font=\small, text=ink},
+		trans/.style={font=\scriptsize, text=muted, fill=white,
+				inner sep=1.5pt},
+		har/.style={-{Stealth[length=4.5pt]}, draw=muted, semithick},
+		hbr/.style={{Stealth[length=4.5pt]}-{Stealth[length=4.5pt]},
+				draw=muted, semithick},
+	]
+	\node[font=\large, text=lpcol] (lp) at (0,0) {\textbf{LambdaPi}};
+	\node[prover] (lean) at (-3,2)  {Lean};
+	\node[prover] (coq)  at (0,2)   {Rocq};
+	\node[prover] (hol)  at (3,2)   {HOL};
+	\node[prover] (isa)  at (5,0)   {Isabelle};
+	\node[prover] (agda) at (3,-2)  {Agda};
+	\node[prover] (pvs)  at (0,-2)  {PVS};
+	\node[prover] (k)    at (-3,-2) {$\mathbb{K}$ framework};
+	\node[prover] (mat)  at (-5,0)  {Matita};
+	\draw[har] (lean) -- (lp) node[trans, midway, sloped, above]
+		{\code{lean2dk}};
+	\draw[hbr] (coq)  -- (lp) node[trans, midway, sloped, above]
+		{\code{vodk}};
+	\draw[hbr] (hol)  -- (lp) node[trans, midway, sloped, above]
+		{\code{hol2dk}};
+	\draw[har] (isa)  -- (lp) node[trans, midway, sloped, above]
+		{\code{isabelle\_dk}};
+	\draw[har] (agda) -- (lp) node[trans, midway, sloped, above]
+		{\code{agda2dk}};
+	\draw[har] (pvs)  -- (lp);
+	\draw[har] (k)    -- (lp) node[trans, midway, sloped, above]
+		{\code{KaMeLo}};
+	\draw[hbr] (mat)  -- (lp) node[trans, midway, sloped, above]
+		{\code{Krajono}};
+	\end{tikzpicture}}}

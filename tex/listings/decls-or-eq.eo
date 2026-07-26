@@ -1,0 +1,4 @@
+(declare-const or (-> Bool Bool Bool) :right-assoc-nil false)
+(declare-parameterized-const =
+  ((A Type :implicit))
+  (-> A A Bool) :chainable and)
